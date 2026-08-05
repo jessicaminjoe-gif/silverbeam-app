@@ -1,0 +1,130 @@
+// SilverBeam `create-call` Edge Function
+//
+// Creates (or reuses) a Daily.co room for a senior's "Call Family" button,
+// then notifies the senior's linked family via push with a deep link into
+// the same room. The mobile app loads the returned room URL in a WebView
+// using Daily's Prebuilt call UI — no native WebRTC UI to build for MVP.
+//
+// Deploy: supabase functions deploy create-call
+// Secrets: supabase secrets set DAILY_API_KEY=...
+
+import { createClient } from "npm:@supabase/supabase-js@^2.45.0";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const DAILY_API_KEY = Deno.env.get("DAILY_API_KEY")!;
+
+async function sendExpoPush(token: string, title: string, body: string, data: Record<string, unknown>) {
+  await fetch("https://exp.host/--/api/v2/push/send", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ to: token, title, body, data, sound: "default", priority: "high" }),
+  });
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+
+  try {
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: "Missing Authorization header" }), {
+        status: 401,
+        headers: { ...corsHeaders, "content-type": "application/json" },
+      });
+    }
+
+    const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const serviceClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    const {
+      data: { user },
+    } = await userClient.auth.getUser();
+    if (!user) {
+      return new Response(JSON.stringify({ error: "Invalid session" }), {
+        status: 401,
+        headers: { ...corsHeaders, "content-type": "application/json" },
+      });
+    }
+
+    const { data: profile } = await userClient
+      .from("profiles")
+      .select("role, full_name")
+      .eq("id", user.id)
+      .single();
+    if (profile?.role !== "senior") {
+      return new Response(JSON.stringify({ error: "Only senior accounts can start a call" }), {
+        status: 403,
+        headers: { ...corsHeaders, "content-type": "application/json" },
+      });
+    }
+
+    // Short-lived room, unique per call — simpler than trying to reuse a
+    // long-lived room, and Daily auto-expires it.
+    const roomName = `silverbeam-${user.id.slice(0, 8)}-${Date.now()}`;
+    const dailyRes = await fetch("https://api.daily.co/v1/rooms", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${DAILY_API_KEY}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        name: roomName,
+        properties: {
+          exp: Math.floor(Date.now() / 1000) + 60 * 60, // 1 hour
+          enable_screenshare: false,
+          enable_chat: false,
+          start_video_off: false,
+          start_audio_off: false,
+        },
+      }),
+    });
+
+    if (!dailyRes.ok) {
+      const detail = await dailyRes.text();
+      console.error("Daily room creation failed", detail);
+      return new Response(JSON.stringify({ error: "Could not start the call" }), {
+        status: 502,
+        headers: { ...corsHeaders, "content-type": "application/json" },
+      });
+    }
+
+    const room = (await dailyRes.json()) as { url: string; name: string };
+
+    const { data: links } = await serviceClient
+      .from("senior_family_links")
+      .select("family_member_id")
+      .eq("senior_id", user.id)
+      .order("is_emergency_contact", { ascending: false });
+
+    for (const link of links ?? []) {
+      const { data: tokens } = await serviceClient
+        .from("push_tokens")
+        .select("token")
+        .eq("profile_id", link.family_member_id);
+      for (const t of tokens ?? []) {
+        await sendExpoPush(t.token, `${profile.full_name} is calling`, "Tap to join the video call", {
+          roomUrl: room.url,
+        });
+      }
+    }
+
+    return new Response(JSON.stringify({ roomUrl: room.url }), {
+      headers: { ...corsHeaders, "content-type": "application/json" },
+    });
+  } catch (err) {
+    console.error(err);
+    return new Response(JSON.stringify({ error: "Internal error" }), {
+      status: 500,
+      headers: { ...corsHeaders, "content-type": "application/json" },
+    });
+  }
+});

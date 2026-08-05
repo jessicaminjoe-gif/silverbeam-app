@@ -1,0 +1,11 @@
+-- Local-dev-only sample data. Do not run against production.
+-- Assumes two auth.users already exist locally (created via
+-- `supabase auth` locally or the Studio UI) with these ids swapped in.
+
+-- example:
+-- insert into profiles (id, role, full_name, timezone) values
+--   ('00000000-0000-0000-0000-000000000001', 'senior', 'Eleanor Test', 'America/Detroit'),
+--   ('00000000-0000-0000-0000-000000000002', 'family', 'Jordan Test', 'America/Detroit');
+--
+-- insert into senior_family_links (senior_id, family_member_id, relationship, is_emergency_contact) values
+--   ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000002', 'daughter', true);
