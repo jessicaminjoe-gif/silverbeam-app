@@ -1,8 +1,17 @@
 import { Tabs } from "expo-router";
+import { colors } from "@/theme/colors";
 
 export default function FamilyLayout() {
   return (
-    <Tabs screenOptions={{ headerTitleStyle: { fontWeight: "700" } }}>
+    <Tabs
+      screenOptions={{
+        headerTitleStyle: { fontWeight: "700", color: colors.navy },
+        headerStyle: { backgroundColor: colors.cream },
+        tabBarActiveTintColor: colors.terracotta,
+        tabBarInactiveTintColor: colors.textMuted,
+        tabBarStyle: { backgroundColor: colors.cream, borderTopColor: colors.border },
+      }}
+    >
       <Tabs.Screen name="dashboard" options={{ title: "Updates" }} />
       <Tabs.Screen name="senior-profile" options={{ title: "History" }} />
       <Tabs.Screen name="settings" options={{ title: "Settings" }} />

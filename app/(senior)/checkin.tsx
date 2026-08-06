@@ -3,6 +3,7 @@ import { View, Text, Pressable, StyleSheet, ActivityIndicator } from "react-nati
 import { router } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { useSession } from "@/state/useSession";
+import { colors } from "@/theme/colors";
 import type { Mood } from "@/types/database";
 
 const MOODS: { value: Mood; label: string; emoji: string }[] = [
@@ -47,7 +48,7 @@ export default function CheckInScreen() {
             accessibilityLabel={m.label}
           >
             {submittingMood === m.value ? (
-              <ActivityIndicator size="large" />
+              <ActivityIndicator size="large" color={colors.terracotta} />
             ) : (
               <>
                 <Text style={styles.emoji}>{m.emoji}</Text>
@@ -62,18 +63,18 @@ export default function CheckInScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 24, gap: 24, justifyContent: "center" },
-  prompt: { fontSize: 26, fontWeight: "700", textAlign: "center" },
+  container: { flex: 1, padding: 24, gap: 24, justifyContent: "center", backgroundColor: colors.cream },
+  prompt: { fontSize: 26, fontWeight: "700", textAlign: "center", color: colors.navy },
   grid: { gap: 16 },
   moodButton: {
     minHeight: 90,
     borderRadius: 16,
-    backgroundColor: "#f0f0f0",
+    backgroundColor: colors.sageLight,
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
     gap: 16,
   },
   emoji: { fontSize: 40 },
-  moodLabel: { fontSize: 22, fontWeight: "600" },
+  moodLabel: { fontSize: 22, fontWeight: "600", color: colors.navy },
 });

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { View, Text, TextInput, Pressable, StyleSheet, ActivityIndicator } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { useSession } from "@/state/useSession";
+import { colors } from "@/theme/colors";
 
 // Family-member self-signup only. Seniors are provisioned directly by the
 // founder for the beta (see migration comment on profiles RLS) — after a
@@ -57,6 +58,7 @@ export default function SignupScreen() {
       <TextInput
         style={styles.input}
         placeholder="Your full name"
+        placeholderTextColor={colors.textMuted}
         value={fullName}
         onChangeText={setFullName}
         accessibilityLabel="Full name"
@@ -64,6 +66,7 @@ export default function SignupScreen() {
       <TextInput
         style={styles.input}
         placeholder="Email"
+        placeholderTextColor={colors.textMuted}
         autoCapitalize="none"
         keyboardType="email-address"
         value={email}
@@ -73,6 +76,7 @@ export default function SignupScreen() {
       <TextInput
         style={styles.input}
         placeholder="Password"
+        placeholderTextColor={colors.textMuted}
         secureTextEntry
         value={password}
         onChangeText={setPassword}
@@ -82,18 +86,26 @@ export default function SignupScreen() {
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <Pressable style={styles.button} onPress={handleSignup} disabled={submitting} accessibilityRole="button">
-        {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Create Account</Text>}
+        {submitting ? <ActivityIndicator color={colors.white} /> : <Text style={styles.buttonText}>Create Account</Text>}
       </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: "center", padding: 24, gap: 12 },
-  title: { fontSize: 28, fontWeight: "700", textAlign: "center" },
-  subtitle: { fontSize: 15, textAlign: "center", marginBottom: 24, color: "#555" },
-  input: { borderWidth: 1, borderColor: "#ccc", borderRadius: 8, padding: 14, fontSize: 16 },
-  button: { backgroundColor: "#2d6a4f", borderRadius: 8, padding: 16, alignItems: "center", marginTop: 8 },
-  buttonText: { color: "#fff", fontSize: 18, fontWeight: "600" },
-  error: { color: "#b00020", textAlign: "center" },
+  container: { flex: 1, justifyContent: "center", padding: 24, gap: 12, backgroundColor: colors.cream },
+  title: { fontSize: 28, fontWeight: "700", textAlign: "center", color: colors.navy },
+  subtitle: { fontSize: 15, textAlign: "center", marginBottom: 24, color: colors.textMuted },
+  input: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    padding: 14,
+    fontSize: 16,
+    color: colors.text,
+    backgroundColor: colors.white,
+  },
+  button: { backgroundColor: colors.terracotta, borderRadius: 8, padding: 16, alignItems: "center", marginTop: 8 },
+  buttonText: { color: colors.white, fontSize: 18, fontWeight: "600" },
+  error: { color: colors.danger, textAlign: "center" },
 });

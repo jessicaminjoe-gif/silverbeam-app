@@ -2,6 +2,7 @@ import { View, Text, Pressable, StyleSheet, FlatList } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { useSession } from "@/state/useSession";
 import { useLinkedSeniors } from "@/hooks/useLinkedSeniors";
+import { colors } from "@/theme/colors";
 
 export default function SettingsScreen() {
   const profile = useSession((s) => s.profile);
@@ -39,27 +40,27 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 24, gap: 16 },
-  heading: { fontSize: 24, fontWeight: "700" },
-  subheading: { fontSize: 16, fontWeight: "600", color: "#555", marginTop: 8 },
+  container: { flex: 1, padding: 24, gap: 16, backgroundColor: colors.cream },
+  heading: { fontSize: 24, fontWeight: "700", color: colors.navy },
+  subheading: { fontSize: 16, fontWeight: "600", color: colors.textMuted, marginTop: 8 },
   seniorRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    backgroundColor: "#f7f7f7",
+    backgroundColor: colors.white,
     borderRadius: 10,
     padding: 14,
     marginBottom: 8,
   },
-  seniorName: { fontSize: 16, fontWeight: "500" },
-  badge: { fontSize: 12, color: "#2d6a4f", fontWeight: "700" },
-  emptyText: { fontSize: 15, color: "#555" },
+  seniorName: { fontSize: 16, fontWeight: "500", color: colors.text },
+  badge: { fontSize: 12, color: "#5F7355", fontWeight: "700" },
+  emptyText: { fontSize: 15, color: colors.textMuted },
   signOutButton: {
     marginTop: "auto",
-    backgroundColor: "#b00020",
+    backgroundColor: colors.navy,
     borderRadius: 10,
     padding: 16,
     alignItems: "center",
   },
-  signOutText: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  signOutText: { color: colors.white, fontSize: 16, fontWeight: "600" },
 });

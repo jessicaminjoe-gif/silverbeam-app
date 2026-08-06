@@ -12,7 +12,7 @@ const config: ExpoConfig = {
   splash: {
     image: "./assets/splash.png",
     resizeMode: "contain",
-    backgroundColor: "#ffffff",
+    backgroundColor: "#FFFDFB",
   },
   assetBundlePatterns: ["**/*"],
   ios: {
@@ -26,7 +26,7 @@ const config: ExpoConfig = {
   android: {
     adaptiveIcon: {
       foregroundImage: "./assets/adaptive-icon.png",
-      backgroundColor: "#ffffff",
+      backgroundColor: "#FFFDFB",
     },
     package: "com.silverbeam.app",
     permissions: ["CAMERA", "RECORD_AUDIO"],

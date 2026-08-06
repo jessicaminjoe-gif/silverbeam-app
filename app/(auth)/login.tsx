@@ -1,7 +1,15 @@
 import { useState } from "react";
-import { View, Text, TextInput, Pressable, StyleSheet, ActivityIndicator } from "react-native";
+import { View, Text, TextInput, Pressable, StyleSheet, ActivityIndicator, Image, Platform } from "react-native";
 import { Link } from "expo-router";
 import { supabase } from "@/lib/supabase";
+import { colors } from "@/theme/colors";
+
+// expo export --platform web doesn't resolve local require()'d image
+// sources correctly in the static bundle (works fine in the dev server,
+// breaks only in the exported build) — using the public/ folder's absolute
+// path sidesteps it for web, while native keeps using the real asset via
+// require() like normal.
+const logoSource = Platform.OS === "web" ? { uri: "/brand-icon.png" } : require("../../assets/icon.png");
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -20,12 +28,17 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>SilverBeam</Text>
+      <Image source={logoSource} style={styles.logo} accessibilityLabel="SilverBeam" />
+      <Text style={styles.title}>
+        <Text style={styles.titleSilver}>Silver</Text>
+        <Text style={styles.titleBeam}>Beam</Text>
+      </Text>
       <Text style={styles.subtitle}>Sign in to continue</Text>
 
       <TextInput
         style={styles.input}
         placeholder="Email"
+        placeholderTextColor={colors.textMuted}
         autoCapitalize="none"
         keyboardType="email-address"
         value={email}
@@ -35,6 +48,7 @@ export default function LoginScreen() {
       <TextInput
         style={styles.input}
         placeholder="Password"
+        placeholderTextColor={colors.textMuted}
         secureTextEntry
         value={password}
         onChangeText={setPassword}
@@ -44,7 +58,7 @@ export default function LoginScreen() {
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <Pressable style={styles.button} onPress={handleLogin} disabled={submitting} accessibilityRole="button">
-        {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Sign In</Text>}
+        {submitting ? <ActivityIndicator color={colors.white} /> : <Text style={styles.buttonText}>Sign In</Text>}
       </Pressable>
 
       <Link href="/(auth)/signup" style={styles.link}>
@@ -58,24 +72,29 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: "center", padding: 24, gap: 12 },
+  container: { flex: 1, justifyContent: "center", padding: 24, gap: 12, backgroundColor: colors.cream },
+  logo: { width: 84, height: 84, alignSelf: "center", marginBottom: 4 },
   title: { fontSize: 32, fontWeight: "700", textAlign: "center" },
-  subtitle: { fontSize: 16, textAlign: "center", marginBottom: 24, color: "#555" },
+  titleSilver: { color: colors.navy },
+  titleBeam: { color: colors.terracotta },
+  subtitle: { fontSize: 16, textAlign: "center", marginBottom: 24, color: colors.textMuted },
   input: {
     borderWidth: 1,
-    borderColor: "#ccc",
+    borderColor: colors.border,
     borderRadius: 8,
     padding: 14,
     fontSize: 16,
+    color: colors.text,
+    backgroundColor: colors.white,
   },
   button: {
-    backgroundColor: "#2d6a4f",
+    backgroundColor: colors.terracotta,
     borderRadius: 8,
     padding: 16,
     alignItems: "center",
     marginTop: 8,
   },
-  buttonText: { color: "#fff", fontSize: 18, fontWeight: "600" },
-  error: { color: "#b00020", textAlign: "center" },
-  link: { textAlign: "center", marginTop: 16, color: "#2d6a4f" },
+  buttonText: { color: colors.white, fontSize: 18, fontWeight: "600" },
+  error: { color: colors.danger, textAlign: "center" },
+  link: { textAlign: "center", marginTop: 16, color: colors.terracotta },
 });

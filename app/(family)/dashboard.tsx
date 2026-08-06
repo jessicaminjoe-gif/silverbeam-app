@@ -3,6 +3,7 @@ import { View, Text, FlatList, StyleSheet, ActivityIndicator, Pressable, Refresh
 import { router } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { useLinkedSeniors } from "@/hooks/useLinkedSeniors";
+import { colors } from "@/theme/colors";
 import type { CheckIn, EscalationEvent } from "@/types/database";
 
 const MOOD_EMOJI: Record<string, string> = {
@@ -53,7 +54,7 @@ export default function DashboardScreen() {
   if (loadingSeniors || loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" />
+        <ActivityIndicator size="large" color={colors.terracotta} />
       </View>
     );
   }
@@ -105,23 +106,23 @@ export default function DashboardScreen() {
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24 },
-  list: { padding: 16, gap: 10 },
-  heading: { fontSize: 24, fontWeight: "700" },
-  emptyText: { fontSize: 16, textAlign: "center", color: "#555" },
+  center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, backgroundColor: colors.cream },
+  list: { padding: 16, gap: 10, backgroundColor: colors.cream },
+  heading: { fontSize: 24, fontWeight: "700", color: colors.navy },
+  emptyText: { fontSize: 16, textAlign: "center", color: colors.textMuted },
   checkInRow: {
     flexDirection: "row",
     gap: 12,
     alignItems: "center",
-    backgroundColor: "#f7f7f7",
+    backgroundColor: colors.white,
     borderRadius: 12,
     padding: 14,
   },
   moodEmoji: { fontSize: 28 },
-  summary: { fontSize: 16, fontWeight: "500" },
-  date: { fontSize: 13, color: "#777", marginTop: 2 },
+  summary: { fontSize: 16, fontWeight: "500", color: colors.text },
+  date: { fontSize: 13, color: colors.textMuted, marginTop: 2 },
   alertBanner: { borderRadius: 12, padding: 14 },
   alertHigh: { backgroundColor: "#ffd6d6" },
   alertMedium: { backgroundColor: "#ffe8c2" },
-  alertText: { fontSize: 15, fontWeight: "600" },
+  alertText: { fontSize: 15, fontWeight: "600", color: colors.navy },
 });

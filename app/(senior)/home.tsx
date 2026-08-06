@@ -13,6 +13,7 @@ import {
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useCompanionChat } from "@/hooks/useCompanionChat";
+import { colors } from "@/theme/colors";
 
 // Note on voice input: the device keyboard's built-in dictation mic (iOS
 // and Android both provide one on any text field) lets a senior speak
@@ -39,7 +40,10 @@ export default function SeniorHomeScreen() {
       keyboardVerticalOffset={insets.top}
     >
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <Text style={styles.title}>SilverBeam</Text>
+        <Text style={styles.title}>
+          <Text style={styles.titleSilver}>Silver</Text>
+          <Text style={styles.titleBeam}>Beam</Text>
+        </Text>
         <Pressable
           style={styles.callButton}
           onPress={() => router.push("/(senior)/call")}
@@ -94,7 +98,7 @@ export default function SeniorHomeScreen() {
           accessibilityRole="button"
           accessibilityLabel="Send"
         >
-          {sending ? <ActivityIndicator color="#fff" /> : <Text style={styles.sendButtonText}>Send</Text>}
+          {sending ? <ActivityIndicator color={colors.white} /> : <Text style={styles.sendButtonText}>Send</Text>}
         </Pressable>
       </View>
     </KeyboardAvoidingView>
@@ -106,57 +110,63 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#e5e5e5",
+    borderBottomColor: colors.border,
+    backgroundColor: colors.cream,
     gap: 12,
   },
   title: { fontSize: 28, fontWeight: "700" },
+  titleSilver: { color: colors.navy },
+  titleBeam: { color: colors.terracotta },
   callButton: {
-    backgroundColor: "#2d6a4f",
+    backgroundColor: colors.terracotta,
     borderRadius: 12,
     paddingVertical: 18,
     alignItems: "center",
     minHeight: 60,
     justifyContent: "center",
   },
-  callButtonText: { color: "#fff", fontSize: 20, fontWeight: "700" },
-  list: { padding: 16, gap: 10, flexGrow: 1 },
-  emptyText: { fontSize: 20, textAlign: "center", marginTop: 40, color: "#555" },
+  callButtonText: { color: colors.white, fontSize: 20, fontWeight: "700" },
+  list: { padding: 16, gap: 10, flexGrow: 1, backgroundColor: colors.cream },
+  emptyText: { fontSize: 20, textAlign: "center", marginTop: 40, color: colors.textMuted },
   bubble: { borderRadius: 14, padding: 14, maxWidth: "85%" },
-  bubbleSenior: { backgroundColor: "#dbe9e0", alignSelf: "flex-end" },
-  bubbleAssistant: { backgroundColor: "#f0f0f0", alignSelf: "flex-start" },
-  bubbleText: { fontSize: 20, lineHeight: 28 },
+  bubbleSenior: { backgroundColor: colors.peach, alignSelf: "flex-end" },
+  bubbleAssistant: { backgroundColor: colors.sageLight, alignSelf: "flex-start" },
+  bubbleText: { fontSize: 20, lineHeight: 28, color: colors.text },
   inputRow: {
     flexDirection: "row",
     alignItems: "flex-end",
     padding: 12,
     gap: 8,
     borderTopWidth: 1,
-    borderTopColor: "#e5e5e5",
+    borderTopColor: colors.border,
+    backgroundColor: colors.cream,
   },
   checkinButton: {
-    backgroundColor: "#eef",
+    backgroundColor: colors.sageLight,
     borderRadius: 10,
     paddingHorizontal: 12,
     justifyContent: "center",
     minHeight: 60,
   },
-  checkinButtonText: { fontSize: 16, fontWeight: "600", color: "#2d6a4f" },
+  checkinButtonText: { fontSize: 16, fontWeight: "600", color: colors.navy },
   input: {
     flex: 1,
     fontSize: 18,
     borderWidth: 1,
-    borderColor: "#ccc",
+    borderColor: colors.border,
     borderRadius: 10,
     padding: 12,
     minHeight: 60,
     maxHeight: 120,
+    color: colors.text,
+    backgroundColor: colors.white,
   },
   sendButton: {
-    backgroundColor: "#2d6a4f",
+    backgroundColor: colors.terracotta,
     borderRadius: 10,
     paddingHorizontal: 20,
     justifyContent: "center",
     minHeight: 60,
   },
-  sendButtonText: { color: "#fff", fontSize: 18, fontWeight: "700" },
+  sendButtonText: { color: colors.white, fontSize: 18, fontWeight: "700" },
 });

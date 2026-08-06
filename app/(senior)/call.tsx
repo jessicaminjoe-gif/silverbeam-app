@@ -3,6 +3,7 @@ import { View, Text, ActivityIndicator, StyleSheet, Pressable, PermissionsAndroi
 import { WebView } from "react-native-webview";
 import { router } from "expo-router";
 import { supabase } from "@/lib/supabase";
+import { colors } from "@/theme/colors";
 
 interface CreateCallResponse {
   roomUrl: string;
@@ -53,7 +54,7 @@ export default function CallScreen() {
   if (!roomUrl) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" />
+        <ActivityIndicator size="large" color={colors.terracotta} />
         <Text style={styles.loadingText}>Starting your call...</Text>
       </View>
     );
@@ -74,9 +75,9 @@ export default function CallScreen() {
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, gap: 16 },
-  loadingText: { fontSize: 20 },
-  errorText: { fontSize: 20, textAlign: "center", color: "#b00020" },
-  backButton: { backgroundColor: "#2d6a4f", borderRadius: 10, paddingVertical: 16, paddingHorizontal: 24 },
-  backButtonText: { color: "#fff", fontSize: 18, fontWeight: "600" },
+  center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, gap: 16, backgroundColor: colors.cream },
+  loadingText: { fontSize: 20, color: colors.navy },
+  errorText: { fontSize: 20, textAlign: "center", color: colors.danger },
+  backButton: { backgroundColor: colors.terracotta, borderRadius: 10, paddingVertical: 16, paddingHorizontal: 24 },
+  backButtonText: { color: colors.white, fontSize: 18, fontWeight: "600" },
 });

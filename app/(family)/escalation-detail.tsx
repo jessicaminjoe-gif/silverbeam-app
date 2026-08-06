@@ -3,6 +3,7 @@ import { View, Text, Pressable, StyleSheet, ActivityIndicator } from "react-nati
 import { useLocalSearchParams, router } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { useSession } from "@/state/useSession";
+import { colors } from "@/theme/colors";
 import type { EscalationEvent } from "@/types/database";
 
 export default function EscalationDetailScreen() {
@@ -47,7 +48,7 @@ export default function EscalationDetailScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" />
+        <ActivityIndicator size="large" color={colors.terracotta} />
       </View>
     );
   }
@@ -97,13 +98,13 @@ export default function EscalationDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24 },
-  container: { flex: 1, padding: 24, gap: 8 },
-  severity: { fontSize: 22, fontWeight: "700", color: "#b00020" },
-  reason: { fontSize: 18, marginTop: 8 },
-  meta: { fontSize: 14, color: "#666", marginTop: 4 },
-  emptyText: { fontSize: 16, color: "#555" },
-  button: { backgroundColor: "#2d6a4f", borderRadius: 10, padding: 16, alignItems: "center" },
-  resolveButton: { backgroundColor: "#444" },
-  buttonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, backgroundColor: colors.cream },
+  container: { flex: 1, padding: 24, gap: 8, backgroundColor: colors.cream },
+  severity: { fontSize: 22, fontWeight: "700", color: colors.danger },
+  reason: { fontSize: 18, marginTop: 8, color: colors.text },
+  meta: { fontSize: 14, color: colors.textMuted, marginTop: 4 },
+  emptyText: { fontSize: 16, color: colors.textMuted },
+  button: { backgroundColor: colors.terracotta, borderRadius: 10, padding: 16, alignItems: "center" },
+  resolveButton: { backgroundColor: colors.navy },
+  buttonText: { color: colors.white, fontSize: 16, fontWeight: "600" },
 });

@@ -3,6 +3,7 @@ import { View, Text, FlatList, StyleSheet, ActivityIndicator, Pressable } from "
 import { router } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { useLinkedSeniors } from "@/hooks/useLinkedSeniors";
+import { colors } from "@/theme/colors";
 import type { EscalationEvent } from "@/types/database";
 
 export default function SeniorProfileScreen() {
@@ -26,7 +27,7 @@ export default function SeniorProfileScreen() {
   if (loadingSeniors || loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" />
+        <ActivityIndicator size="large" color={colors.terracotta} />
       </View>
     );
   }
@@ -64,20 +65,20 @@ export default function SeniorProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24 },
-  list: { padding: 16, gap: 10 },
-  heading: { fontSize: 20, fontWeight: "700", marginBottom: 8 },
-  emptyText: { fontSize: 16, textAlign: "center", color: "#555" },
+  center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, backgroundColor: colors.cream },
+  list: { padding: 16, gap: 10, backgroundColor: colors.cream },
+  heading: { fontSize: 20, fontWeight: "700", marginBottom: 8, color: colors.navy },
+  emptyText: { fontSize: 16, textAlign: "center", color: colors.textMuted },
   row: {
     flexDirection: "row",
     gap: 12,
     alignItems: "center",
-    backgroundColor: "#f7f7f7",
+    backgroundColor: colors.white,
     borderRadius: 12,
     padding: 14,
   },
-  severity: { fontWeight: "700", fontSize: 13, color: "#b00020", width: 60 },
-  reason: { fontSize: 15, fontWeight: "500" },
-  date: { fontSize: 13, color: "#777", marginTop: 2 },
-  status: { fontSize: 13, fontWeight: "600", color: "#2d6a4f" },
+  severity: { fontWeight: "700", fontSize: 13, color: colors.danger, width: 60 },
+  reason: { fontSize: 15, fontWeight: "500", color: colors.text },
+  date: { fontSize: 13, color: colors.textMuted, marginTop: 2 },
+  status: { fontSize: 13, fontWeight: "600", color: "#5F7355" },
 });

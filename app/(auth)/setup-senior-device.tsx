@@ -3,6 +3,7 @@ import { View, Text, TextInput, Pressable, StyleSheet, ActivityIndicator } from 
 import { router } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { useSession } from "@/state/useSession";
+import { colors } from "@/theme/colors";
 import type { Profile } from "@/types/database";
 
 // Run through by a family member, in person, on the senior's own device —
@@ -91,6 +92,7 @@ export default function SetupSeniorDeviceScreen() {
       <TextInput
         style={styles.input}
         placeholder="Senior's full name"
+        placeholderTextColor={colors.textMuted}
         value={fullName}
         onChangeText={setFullName}
         accessibilityLabel="Senior's full name"
@@ -99,26 +101,35 @@ export default function SetupSeniorDeviceScreen() {
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <Pressable style={styles.button} onPress={handleSetup} disabled={submitting} accessibilityRole="button">
-        {submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Set Up This Device</Text>}
+        {submitting ? <ActivityIndicator color={colors.white} /> : <Text style={styles.buttonText}>Set Up This Device</Text>}
       </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: "center", padding: 24, gap: 12 },
-  title: { fontSize: 28, fontWeight: "700", textAlign: "center" },
-  subtitle: { fontSize: 15, textAlign: "center", marginBottom: 12, color: "#555" },
-  input: { borderWidth: 1, borderColor: "#ccc", borderRadius: 8, padding: 14, fontSize: 16 },
-  button: { backgroundColor: "#2d6a4f", borderRadius: 8, padding: 16, alignItems: "center", marginTop: 8 },
-  buttonText: { color: "#fff", fontSize: 18, fontWeight: "600" },
-  error: { color: "#b00020", textAlign: "center" },
+  container: { flex: 1, justifyContent: "center", padding: 24, gap: 12, backgroundColor: colors.cream },
+  title: { fontSize: 28, fontWeight: "700", textAlign: "center", color: colors.navy },
+  subtitle: { fontSize: 15, textAlign: "center", marginBottom: 12, color: colors.textMuted },
+  input: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    padding: 14,
+    fontSize: 16,
+    color: colors.text,
+    backgroundColor: colors.white,
+  },
+  button: { backgroundColor: colors.terracotta, borderRadius: 8, padding: 16, alignItems: "center", marginTop: 8 },
+  buttonText: { color: colors.white, fontSize: 18, fontWeight: "600" },
+  error: { color: colors.danger, textAlign: "center" },
   idText: {
     fontSize: 16,
     fontFamily: "monospace",
     textAlign: "center",
-    backgroundColor: "#f0f0f0",
+    backgroundColor: colors.sageLight,
     padding: 12,
     borderRadius: 8,
+    color: colors.navy,
   },
 });

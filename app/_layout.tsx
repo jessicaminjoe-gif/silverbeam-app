@@ -5,6 +5,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { supabase } from "@/lib/supabase";
 import { useSession } from "@/state/useSession";
 import { useRegisterPushToken } from "@/hooks/useRegisterPushToken";
+import { colors } from "@/theme/colors";
 import type { Profile } from "@/types/database";
 
 export default function RootLayout() {
@@ -81,8 +82,8 @@ function AuthGate() {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-        <ActivityIndicator size="large" />
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.cream }}>
+        <ActivityIndicator size="large" color={colors.terracotta} />
       </View>
     );
   }
