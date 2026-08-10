@@ -90,6 +90,23 @@ Because the app uses `react-native-webview` and `expo-notifications`
 eas build --profile development --platform ios   # or android
 ```
 
+**Before your first EAS build**, register the `EXPO_PUBLIC_*` vars from
+`.env.local` as EAS environment variables — the cloud build machine never
+sees your local `.env.local` (it's gitignored on purpose), so without this
+the build "succeeds" but the installed app crashes immediately on launch
+(`supabase.ts` throws on purpose when these are missing, and nothing
+catches it — this is exactly what happened during beta testing before this
+note existed):
+
+```bash
+eas env:set --name EXPO_PUBLIC_SUPABASE_URL --value "https://your-project.supabase.co" --visibility plaintext --environment preview --environment development --environment production
+eas env:set --name EXPO_PUBLIC_SUPABASE_ANON_KEY --value "your-anon-key" --visibility plaintext --environment preview --environment development --environment production
+```
+
+`plaintext` is correct here, not `secret` — these are the public anon
+key/URL, meant to ship inside the client bundle. Verify anytime with
+`eas env:list --environment preview`.
+
 Once installed on a device/simulator:
 
 ```bash
