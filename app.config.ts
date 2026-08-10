@@ -30,6 +30,7 @@ const config: ExpoConfig = {
     },
     package: "com.silverbeam.app",
     permissions: ["CAMERA", "RECORD_AUDIO"],
+    googleServicesFile: "./google-services.json",
   },
   plugins: ["expo-router", "expo-dev-client", "expo-notifications"],
   extra: {

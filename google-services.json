@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "668035237096",
+    "project_id": "silverbeam-project",
+    "storage_bucket": "silverbeam-project.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:668035237096:android:c0b71707557bb7668b755d",
+        "android_client_info": {
+          "package_name": "com.silverbeam.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAQmKLcbmad0KAvN2JDEaMHzeyPzNxGLC8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
