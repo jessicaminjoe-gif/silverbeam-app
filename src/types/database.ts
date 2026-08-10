@@ -60,6 +60,13 @@ export interface EscalationEvent {
   created_at: string;
 }
 
+export interface CallEvent {
+  id: string;
+  senior_id: string;
+  room_name: string;
+  started_at: string;
+}
+
 export interface PushToken {
   id: string;
   profile_id: string;
@@ -110,6 +117,12 @@ export interface Database {
         Row: PushToken;
         Insert: Partial<PushToken> & { profile_id: string; token: string };
         Update: Partial<PushToken>;
+        Relationships: [];
+      };
+      call_events: {
+        Row: CallEvent;
+        Insert: Partial<CallEvent> & { senior_id: string; room_name: string };
+        Update: Partial<CallEvent>;
         Relationships: [];
       };
     };

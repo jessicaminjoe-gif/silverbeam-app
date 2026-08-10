@@ -109,6 +109,33 @@ Deno.serve(async (req) => {
 
     const room = (await dailyRes.json()) as { url: string; name: string };
 
+    // Daily Prebuilt shows a "what's your name" screen unless the join is
+    // carrying a meeting token with user_name already set — mint one scoped
+    // to this room/sender so the senior never has to type their own name.
+    const tokenRes = await fetch("https://api.daily.co/v1/meeting-tokens", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${DAILY_API_KEY}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        properties: {
+          room_name: room.name,
+          user_name: profile.full_name,
+          exp: Math.floor(Date.now() / 1000) + 60 * 60,
+        },
+      }),
+    });
+    let seniorRoomUrl = room.url;
+    if (tokenRes.ok) {
+      const { token } = (await tokenRes.json()) as { token: string };
+      seniorRoomUrl = `${room.url}?t=${token}`;
+    } else {
+      console.error("[create-call] meeting token creation failed:", tokenRes.status, await tokenRes.text());
+    }
+
+    await serviceClient.from("call_events").insert({ senior_id: user.id, room_name: room.name });
+
     const { data: links, error: linksError } = await serviceClient
       .from("senior_family_links")
       .select("family_member_id")
@@ -129,7 +156,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ roomUrl: room.url }), {
+    return new Response(JSON.stringify({ roomUrl: seniorRoomUrl }), {
       headers: { ...corsHeaders, "content-type": "application/json" },
     });
   } catch (err) {

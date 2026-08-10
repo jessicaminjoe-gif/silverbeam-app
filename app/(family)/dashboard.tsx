@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { View, Text, FlatList, StyleSheet, ActivityIndicator, Pressable, RefreshControl } from "react-native";
 import { router } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
 import { supabase } from "@/lib/supabase";
 import { useLinkedSeniors } from "@/hooks/useLinkedSeniors";
 import { colors } from "@/theme/colors";
@@ -41,9 +42,14 @@ export default function DashboardScreen() {
     setLoading(false);
   }, [primarySenior?.seniorId]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  // Tabs stay mounted when you switch away, so a plain mount-only fetch
+  // would never pick up an escalation that fires while the app is already
+  // open. Refetch every time this tab regains focus, not just on mount.
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
 
   async function onRefresh() {
     setRefreshing(true);
