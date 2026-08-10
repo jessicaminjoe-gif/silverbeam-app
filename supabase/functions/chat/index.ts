@@ -27,11 +27,18 @@ const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 async function sendExpoPush(token: string, title: string, body: string) {
-  await fetch("https://exp.host/--/api/v2/push/send", {
+  const res = await fetch("https://exp.host/--/api/v2/push/send", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ to: token, title, body, sound: "default", priority: "high" }),
   });
+  // Must consume the body, not just await fetch() for headers — found via
+  // create-call hitting the same issue: an unread response body let the
+  // Edge Function's isolate tear down the outbound request after the
+  // handler returned, so the push silently never actually reached Expo's
+  // API despite the fetch() promise resolving normally.
+  const resBody = await res.text();
+  if (!res.ok) console.error("[chat] push send failed:", res.status, resBody);
 }
 
 async function sendTwilioSms(toPhone: string, body: string) {
@@ -40,7 +47,7 @@ async function sendTwilioSms(toPhone: string, body: string) {
   const from = Deno.env.get("TWILIO_FROM_NUMBER");
   if (!sid || !authToken || !from) return;
   const creds = btoa(`${sid}:${authToken}`);
-  await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
+  const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
     method: "POST",
     headers: {
       Authorization: `Basic ${creds}`,
@@ -48,6 +55,8 @@ async function sendTwilioSms(toPhone: string, body: string) {
     },
     body: new URLSearchParams({ To: toPhone, From: from, Body: body }),
   });
+  const resBody = await res.text();
+  if (!res.ok) console.error("[chat] Twilio SMS send failed:", res.status, resBody);
 }
 
 Deno.serve(async (req) => {

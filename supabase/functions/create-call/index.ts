@@ -21,11 +21,21 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const DAILY_API_KEY = Deno.env.get("DAILY_API_KEY")!;
 
 async function sendExpoPush(token: string, title: string, body: string, data: Record<string, unknown>) {
-  await fetch("https://exp.host/--/api/v2/push/send", {
+  const res = await fetch("https://exp.host/--/api/v2/push/send", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ to: token, title, body, data, sound: "default", priority: "high" }),
   });
+  // Deliberately consuming the body, not just awaiting fetch() for headers —
+  // during beta testing, calls to the exact same token with the exact same
+  // payload worked fine when sent directly but silently never arrived when
+  // sent from inside this function, and started working once this response
+  // was actually read. Best guess: the Edge Function's isolate can tear
+  // down an in-flight outbound request once the handler returns, if nothing
+  // is still waiting on that response's body — reading it here keeps the
+  // request alive until Expo's API has actually finished it.
+  const resBody = await res.text();
+  if (!res.ok) console.error("[create-call] push send failed:", res.status, resBody);
 }
 
 Deno.serve(async (req) => {
@@ -99,17 +109,19 @@ Deno.serve(async (req) => {
 
     const room = (await dailyRes.json()) as { url: string; name: string };
 
-    const { data: links } = await serviceClient
+    const { data: links, error: linksError } = await serviceClient
       .from("senior_family_links")
       .select("family_member_id")
       .eq("senior_id", user.id)
       .order("is_emergency_contact", { ascending: false });
+    if (linksError) console.error("[create-call] senior_family_links lookup failed:", linksError.message);
 
     for (const link of links ?? []) {
-      const { data: tokens } = await serviceClient
+      const { data: tokens, error: tokensError } = await serviceClient
         .from("push_tokens")
         .select("token")
         .eq("profile_id", link.family_member_id);
+      if (tokensError) console.error("[create-call] push_tokens lookup failed:", tokensError.message);
       for (const t of tokens ?? []) {
         await sendExpoPush(t.token, `${profile.full_name} is calling`, "Tap to join the video call", {
           roomUrl: room.url,
