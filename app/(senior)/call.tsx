@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { View, Text, ActivityIndicator, StyleSheet, Pressable, PermissionsAndroid, Platform } from "react-native";
-import { WebView } from "react-native-webview";
+import { View, Text, ActivityIndicator, StyleSheet, Pressable } from "react-native";
 import { router } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { colors } from "@/theme/colors";
+import { CallWebView } from "@/components/CallWebView";
 
 interface CreateCallResponse {
   roomUrl: string;
@@ -17,12 +17,6 @@ export default function CallScreen() {
     let mounted = true;
 
     async function start() {
-      if (Platform.OS === "android") {
-        await PermissionsAndroid.requestMultiple([
-          PermissionsAndroid.PERMISSIONS.CAMERA,
-          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
-        ]);
-      }
       const { data, error: fnError } = await supabase.functions.invoke<CreateCallResponse>("create-call", {
         body: {},
       });
@@ -60,18 +54,7 @@ export default function CallScreen() {
     );
   }
 
-  return (
-    <WebView
-      source={{ uri: roomUrl }}
-      style={{ flex: 1 }}
-      mediaPlaybackRequiresUserAction={false}
-      allowsInlineMediaPlayback
-      javaScriptEnabled
-      domStorageEnabled
-      originWhitelist={["*"]}
-      mediaCapturePermissionGrantType="grant"
-    />
-  );
+  return <CallWebView roomUrl={roomUrl} />;
 }
 
 const styles = StyleSheet.create({

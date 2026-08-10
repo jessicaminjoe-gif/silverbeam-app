@@ -1,7 +1,8 @@
 import { useEffect } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { ActivityIndicator, Platform, View } from "react-native";
 import { Slot, useRouter, useSegments } from "expo-router";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import * as Notifications from "expo-notifications";
 import { supabase } from "@/lib/supabase";
 import { useSession } from "@/state/useSession";
 import { useRegisterPushToken } from "@/hooks/useRegisterPushToken";
@@ -21,6 +22,33 @@ function AuthGate() {
   const segments = useSegments();
   const router = useRouter();
   useRegisterPushToken(profile?.id);
+
+  // "Is calling" pushes carry { roomUrl } in their data payload (escalation
+  // pushes carry no data at all, so this can't misfire on those). Handles
+  // both a tap while the app is backgrounded/foregrounded and a cold start
+  // from a tap (the app wasn't running at all when the notification came in).
+  // Native only — expo-notifications' response APIs aren't implemented on
+  // web at all and throw synchronously there, which crashed the whole app.
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+
+    function goToCallIfInvite(data: Record<string, unknown> | undefined) {
+      const roomUrl = data?.roomUrl;
+      if (typeof roomUrl === "string") {
+        router.push({ pathname: "/(family)/call", params: { roomUrl } });
+      }
+    }
+
+    Notifications.getLastNotificationResponseAsync().then((response) => {
+      goToCallIfInvite(response?.notification.request.content.data);
+    });
+
+    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+      goToCallIfInvite(response.notification.request.content.data);
+    });
+
+    return () => subscription.remove();
+  }, []);
 
   useEffect(() => {
     let mounted = true;

@@ -35,9 +35,13 @@ export function useRegisterPushToken(profileId: string | undefined) {
       );
     }
 
-    register().catch(() => {
+    register().catch((err) => {
       // Non-fatal: push notifications are a safety-net channel, not the
       // only escalation signal (family also sees escalation_events in-app).
+      // Logged rather than fully swallowed — a silent catch here previously
+      // hid a real, systemic failure (Android push requires FCM
+      // credentials that were never configured) for the entire beta.
+      console.warn("[useRegisterPushToken] registration failed:", err);
     });
 
     return () => {
