@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { router } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useCompanionChat } from "@/hooks/useCompanionChat";
 import { colors } from "@/theme/colors";
@@ -48,9 +49,13 @@ export default function SeniorHomeScreen() {
           style={styles.callButton}
           onPress={() => router.push("/(senior)/call")}
           accessibilityRole="button"
-          accessibilityLabel="Call Family"
+          accessibilityLabel="Let's Connect. Tap to video call."
         >
-          <Text style={styles.callButtonText}>📞 Call Family</Text>
+          <Ionicons name="videocam" size={30} color={colors.white} />
+          <View>
+            <Text style={styles.callButtonText}>Let's Connect</Text>
+            <Text style={styles.callButtonSubtext}>Tap to video call</Text>
+          </View>
         </Pressable>
       </View>
 
@@ -120,12 +125,16 @@ const styles = StyleSheet.create({
   callButton: {
     backgroundColor: colors.terracotta,
     borderRadius: 12,
-    paddingVertical: 18,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    flexDirection: "row",
     alignItems: "center",
-    minHeight: 60,
     justifyContent: "center",
+    gap: 14,
+    minHeight: 60,
   },
   callButtonText: { color: colors.white, fontSize: 20, fontWeight: "700" },
+  callButtonSubtext: { color: colors.white, fontSize: 14, opacity: 0.85, marginTop: 2 },
   list: { padding: 16, gap: 10, flexGrow: 1, backgroundColor: colors.cream },
   emptyText: { fontSize: 20, textAlign: "center", marginTop: 40, color: colors.textMuted },
   bubble: { borderRadius: 14, padding: 14, maxWidth: "85%" },
