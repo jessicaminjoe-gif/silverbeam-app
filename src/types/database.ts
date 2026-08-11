@@ -65,6 +65,7 @@ export interface CallEvent {
   senior_id: string;
   room_name: string;
   started_at: string;
+  target_family_member_id: string | null;
 }
 
 export interface PushToken {

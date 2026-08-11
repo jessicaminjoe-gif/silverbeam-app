@@ -77,6 +77,30 @@ Deno.serve(async (req) => {
       });
     }
 
+    const { familyMemberId } = (await req.json().catch(() => ({}))) as { familyMemberId?: string };
+    if (!familyMemberId) {
+      return new Response(JSON.stringify({ error: "familyMemberId is required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "content-type": "application/json" },
+      });
+    }
+
+    // Confirm this is actually one of the senior's linked family members —
+    // without this a client could pass an arbitrary profile id and get a
+    // stranger's push token notified.
+    const { data: link } = await userClient
+      .from("senior_family_links")
+      .select("family_member_id")
+      .eq("senior_id", user.id)
+      .eq("family_member_id", familyMemberId)
+      .maybeSingle();
+    if (!link) {
+      return new Response(JSON.stringify({ error: "Not a linked family member" }), {
+        status: 403,
+        headers: { ...corsHeaders, "content-type": "application/json" },
+      });
+    }
+
     // Short-lived room, unique per call — simpler than trying to reuse a
     // long-lived room, and Daily auto-expires it.
     const roomName = `silverbeam-${user.id.slice(0, 8)}-${Date.now()}`;
@@ -134,26 +158,19 @@ Deno.serve(async (req) => {
       console.error("[create-call] meeting token creation failed:", tokenRes.status, await tokenRes.text());
     }
 
-    await serviceClient.from("call_events").insert({ senior_id: user.id, room_name: room.name });
+    await serviceClient
+      .from("call_events")
+      .insert({ senior_id: user.id, room_name: room.name, target_family_member_id: familyMemberId });
 
-    const { data: links, error: linksError } = await serviceClient
-      .from("senior_family_links")
-      .select("family_member_id")
-      .eq("senior_id", user.id)
-      .order("is_emergency_contact", { ascending: false });
-    if (linksError) console.error("[create-call] senior_family_links lookup failed:", linksError.message);
-
-    for (const link of links ?? []) {
-      const { data: tokens, error: tokensError } = await serviceClient
-        .from("push_tokens")
-        .select("token")
-        .eq("profile_id", link.family_member_id);
-      if (tokensError) console.error("[create-call] push_tokens lookup failed:", tokensError.message);
-      for (const t of tokens ?? []) {
-        await sendExpoPush(t.token, `${profile.full_name} is calling`, "Tap to join the video call", {
-          roomUrl: room.url,
-        });
-      }
+    const { data: tokens, error: tokensError } = await serviceClient
+      .from("push_tokens")
+      .select("token")
+      .eq("profile_id", familyMemberId);
+    if (tokensError) console.error("[create-call] push_tokens lookup failed:", tokensError.message);
+    for (const t of tokens ?? []) {
+      await sendExpoPush(t.token, `${profile.full_name} is calling`, "Tap to join the video call", {
+        roomUrl: room.url,
+      });
     }
 
     return new Response(JSON.stringify({ roomUrl: seniorRoomUrl }), {

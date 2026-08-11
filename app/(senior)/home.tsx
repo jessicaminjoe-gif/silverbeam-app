@@ -47,7 +47,7 @@ export default function SeniorHomeScreen() {
         </Text>
         <Pressable
           style={styles.callButton}
-          onPress={() => router.push("/(senior)/call")}
+          onPress={() => router.push("/(senior)/call-picker")}
           accessibilityRole="button"
           accessibilityLabel="Let's Connect. Tap to video call."
         >

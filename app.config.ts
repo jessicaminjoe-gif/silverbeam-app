@@ -21,6 +21,7 @@ const config: ExpoConfig = {
     infoPlist: {
       NSCameraUsageDescription: "SilverBeam uses your camera for video calls with family.",
       NSMicrophoneUsageDescription: "SilverBeam uses your microphone for video calls with family.",
+      NSPhotoLibraryUsageDescription: "SilverBeam uses your photo library to set your profile picture.",
     },
   },
   android: {
@@ -32,7 +33,15 @@ const config: ExpoConfig = {
     permissions: ["CAMERA", "RECORD_AUDIO"],
     googleServicesFile: "./google-services.json",
   },
-  plugins: ["expo-router", "expo-dev-client", "expo-notifications"],
+  plugins: [
+    "expo-router",
+    "expo-dev-client",
+    "expo-notifications",
+    [
+      "expo-image-picker",
+      { photosPermission: "SilverBeam uses your photo library to set your profile picture." },
+    ],
+  ],
   extra: {
     supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
     supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,

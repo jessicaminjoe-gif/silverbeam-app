@@ -3,9 +3,11 @@ import { supabase } from "@/lib/supabase";
 import { useSession } from "@/state/useSession";
 
 export interface LinkedSenior {
+  linkId: string;
   seniorId: string;
   fullName: string;
   isEmergencyContact: boolean;
+  relationship: string | null;
 }
 
 // A family member may eventually be linked to more than one senior; the MVP
@@ -24,7 +26,7 @@ export function useLinkedSeniors() {
     async function load() {
       const { data: links } = await supabase
         .from("senior_family_links")
-        .select("senior_id, is_emergency_contact")
+        .select("id, senior_id, is_emergency_contact, relationship")
         .eq("family_member_id", familyMemberId);
 
       if (!links?.length) {
@@ -45,9 +47,11 @@ export function useLinkedSeniors() {
 
       if (!mounted) return;
       const merged = links.map((l) => ({
+        linkId: l.id,
         seniorId: l.senior_id,
         fullName: profiles?.find((p) => p.id === l.senior_id)?.full_name ?? "Your family member",
         isEmergencyContact: l.is_emergency_contact,
+        relationship: l.relationship,
       }));
       setSeniors(merged);
       setLoading(false);

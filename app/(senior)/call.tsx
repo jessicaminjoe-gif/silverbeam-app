@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { View, Text, ActivityIndicator, StyleSheet, Pressable } from "react-native";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { colors } from "@/theme/colors";
 import { CallWebView } from "@/components/CallWebView";
@@ -10,6 +10,7 @@ interface CreateCallResponse {
 }
 
 export default function CallScreen() {
+  const { familyMemberId } = useLocalSearchParams<{ familyMemberId: string }>();
   const [roomUrl, setRoomUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -18,7 +19,7 @@ export default function CallScreen() {
 
     async function start() {
       const { data, error: fnError } = await supabase.functions.invoke<CreateCallResponse>("create-call", {
-        body: {},
+        body: { familyMemberId },
       });
       if (!mounted) return;
       if (fnError || !data?.roomUrl) {
@@ -32,7 +33,7 @@ export default function CallScreen() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [familyMemberId]);
 
   if (error) {
     return (
