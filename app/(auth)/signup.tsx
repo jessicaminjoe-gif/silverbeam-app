@@ -22,16 +22,47 @@ export default function SignupScreen() {
       return;
     }
     setSubmitting(true);
-    const { data, error: signUpError } = await supabase.auth.signUp({ email, password });
-    if (signUpError || !data.user) {
+
+    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { full_name: fullName.trim() } },
+    });
+
+    let session = signUpData.session;
+    if (signUpError) {
+      // "Already registered" on a retry almost always means a previous
+      // attempt created the auth user but died before the profile insert
+      // below ran (network blip, etc) -- signing up again can never
+      // succeed at that point since the email is taken. Sign in instead
+      // so the upsert below can finish what the first attempt started,
+      // rather than leaving the account permanently stuck.
+      if (!signUpError.message.toLowerCase().includes("already registered")) {
+        setSubmitting(false);
+        setError(signUpError.message);
+        return;
+      }
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      if (signInError || !signInData.session) {
+        setSubmitting(false);
+        setError("An account with this email already exists. Check your password, or contact the SilverBeam team.");
+        return;
+      }
+      session = signInData.session;
+    }
+
+    if (!session) {
       setSubmitting(false);
-      setError(signUpError?.message ?? "Could not create account.");
+      setError("Could not create account.");
       return;
     }
 
+    // Upsert, not insert: makes this step safely retryable (including the
+    // sign-in-instead path above landing here with a profile that may or
+    // may not already exist).
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .insert({ id: data.user.id, role: "family", full_name: fullName.trim() })
+      .upsert({ id: session.user.id, role: "family", full_name: fullName.trim() })
       .select()
       .single();
     setSubmitting(false);
