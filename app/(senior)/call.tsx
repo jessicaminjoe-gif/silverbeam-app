@@ -13,6 +13,7 @@ export default function CallScreen() {
   const { familyMemberId } = useLocalSearchParams<{ familyMemberId: string }>();
   const [roomUrl, setRoomUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [callEnded, setCallEnded] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -35,6 +36,19 @@ export default function CallScreen() {
     };
   }, [familyMemberId]);
 
+  if (callEnded) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.waveEmoji}>👋</Text>
+        <Text style={styles.goodbyeTitle}>Goodbye</Text>
+        <Text style={styles.goodbyeSubtitle}>Have a nice day</Text>
+        <Pressable style={styles.backButton} onPress={() => router.replace("/(senior)/home")} accessibilityRole="button">
+          <Text style={styles.backButtonText}>Done</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
   if (error) {
     return (
       <View style={styles.center}>
@@ -55,13 +69,16 @@ export default function CallScreen() {
     );
   }
 
-  return <CallWebView roomUrl={roomUrl} />;
+  return <CallWebView roomUrl={roomUrl} onCallEnded={() => setCallEnded(true)} accessibleControls />;
 }
 
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, gap: 16, backgroundColor: colors.cream },
   loadingText: { fontSize: 20, color: colors.navy },
   errorText: { fontSize: 20, textAlign: "center", color: colors.danger },
-  backButton: { backgroundColor: colors.terracotta, borderRadius: 10, paddingVertical: 16, paddingHorizontal: 24 },
-  backButtonText: { color: colors.white, fontSize: 18, fontWeight: "600" },
+  waveEmoji: { fontSize: 88 },
+  goodbyeTitle: { fontSize: 44, fontWeight: "700", color: colors.navy },
+  goodbyeSubtitle: { fontSize: 22, color: colors.textMuted, marginTop: -8 },
+  backButton: { backgroundColor: colors.terracotta, borderRadius: 10, paddingVertical: 16, paddingHorizontal: 32, marginTop: 16 },
+  backButtonText: { color: colors.white, fontSize: 20, fontWeight: "600" },
 });

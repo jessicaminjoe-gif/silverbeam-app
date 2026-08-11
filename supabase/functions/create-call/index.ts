@@ -116,6 +116,12 @@ Deno.serve(async (req) => {
           exp: Math.floor(Date.now() / 1000) + 60 * 60, // 1 hour
           enable_screenshare: false,
           enable_chat: false,
+          // Trims the tray's "more options" down to essentially nothing —
+          // with screenshare/chat already off, these were the only other
+          // things it could contain. Applies room-wide (not a per-token
+          // property), so both sides get the simpler toolbar.
+          enable_people_ui: false,
+          enable_network_ui: false,
           start_video_off: false,
           start_audio_off: false,
         },
@@ -147,6 +153,11 @@ Deno.serve(async (req) => {
           room_name: room.name,
           user_name: profile.full_name,
           exp: Math.floor(Date.now() / 1000) + 60 * 60,
+          // Sends the senior's WebView to our own custom-scheme URL instead
+          // of Daily's built-in "you've left the call" screen when they tap
+          // Leave — CallWebView intercepts this scheme and swaps in a
+          // native goodbye screen we fully control (size, wording).
+          redirect_on_meeting_exit: "silverbeam://call-ended",
         },
       }),
     });

@@ -58,7 +58,10 @@ export function SeniorContactSettings({ senior, onSeniorAvatarChanged }: Props) 
   async function handlePreviewVoice(id: string) {
     setPreviewingVoice(id);
     try {
-      await speak(VOICE_PREVIEW_TEXT, id);
+      const result = await speak(VOICE_PREVIEW_TEXT, id);
+      if (!result.ok) {
+        Alert.alert("Couldn't play preview", result.errorMessage ?? "Please try again.");
+      }
     } finally {
       setPreviewingVoice(null);
     }
