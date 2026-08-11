@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useSession } from "@/state/useSession";
+import { speak } from "@/lib/speech";
 import type { CompanionReply } from "@/ai/types";
 
 export interface ChatEntry {
@@ -45,6 +46,9 @@ export function useCompanionChat() {
             ...prev,
             { id: `${optimisticId}-reply`, role: "assistant", content: data.message },
           ]);
+          // Fire-and-forget: don't block the text reply (which already
+          // rendered) on how long speech synthesis + playback takes.
+          speak(data.message);
         }
       } catch (err) {
         setMessages((prev) => [
@@ -62,5 +66,9 @@ export function useCompanionChat() {
     [profile?.id]
   );
 
-  return { messages, sendMessage, sending, loadingHistory };
+  const replay = useCallback((content: string) => {
+    speak(content);
+  }, []);
+
+  return { messages, sendMessage, sending, loadingHistory, replay };
 }

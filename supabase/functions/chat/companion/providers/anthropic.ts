@@ -1,6 +1,6 @@
 import Anthropic from "npm:@anthropic-ai/sdk@^0.27.0";
 import type { CompanionContext, CompanionMessage, CompanionProvider, CompanionReply } from "../CompanionProvider.ts";
-import { COMPANION_SYSTEM_PROMPT } from "../CompanionProvider.ts";
+import { buildCompanionSystemPrompt } from "../CompanionProvider.ts";
 import { parseEscalationTag } from "../escalation.ts";
 
 // Lazy client construction — see providers/openai.ts for why. Both provider
@@ -33,7 +33,7 @@ export const anthropicProvider: CompanionProvider = {
     const response = await getClient().messages.create({
       model: MODEL,
       max_tokens: 300,
-      system: `${COMPANION_SYSTEM_PROMPT}\n\n${buildContextPreamble(context)}`,
+      system: `${buildCompanionSystemPrompt(context.companionName)}\n\n${buildContextPreamble(context)}`,
       messages: [
         ...history
           .filter((m) => m.role !== "system")

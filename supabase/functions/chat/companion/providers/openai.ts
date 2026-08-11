@@ -1,6 +1,6 @@
 import OpenAI from "npm:openai@^4.55.0";
 import type { CompanionContext, CompanionMessage, CompanionProvider, CompanionReply } from "../CompanionProvider.ts";
-import { COMPANION_SYSTEM_PROMPT } from "../CompanionProvider.ts";
+import { buildCompanionSystemPrompt } from "../CompanionProvider.ts";
 import { parseEscalationTag } from "../escalation.ts";
 
 // Lazy client construction — this module is imported unconditionally by
@@ -36,7 +36,7 @@ export const openaiProvider: CompanionProvider = {
       model: MODEL,
       max_tokens: 300,
       messages: [
-        { role: "system", content: `${COMPANION_SYSTEM_PROMPT}\n\n${buildContextPreamble(context)}` },
+        { role: "system", content: `${buildCompanionSystemPrompt(context.companionName)}\n\n${buildContextPreamble(context)}` },
         ...history
           .filter((m) => m.role !== "system")
           .map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),

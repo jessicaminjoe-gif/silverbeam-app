@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useSession } from "@/state/useSession";
 
@@ -6,6 +6,7 @@ export interface LinkedSenior {
   linkId: string;
   seniorId: string;
   fullName: string;
+  avatarUrl: string | null;
   isEmergencyContact: boolean;
   relationship: string | null;
 }
@@ -18,50 +19,44 @@ export function useLinkedSeniors() {
   const [seniors, setSeniors] = useState<LinkedSenior[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (!profile) return;
     const familyMemberId = profile.id;
-    let mounted = true;
 
-    async function load() {
-      const { data: links } = await supabase
-        .from("senior_family_links")
-        .select("id, senior_id, is_emergency_contact, relationship")
-        .eq("family_member_id", familyMemberId);
+    const { data: links } = await supabase
+      .from("senior_family_links")
+      .select("id, senior_id, is_emergency_contact, relationship")
+      .eq("family_member_id", familyMemberId);
 
-      if (!links?.length) {
-        if (mounted) {
-          setSeniors([]);
-          setLoading(false);
-        }
-        return;
-      }
-
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id, full_name")
-        .in(
-          "id",
-          links.map((l) => l.senior_id)
-        );
-
-      if (!mounted) return;
-      const merged = links.map((l) => ({
-        linkId: l.id,
-        seniorId: l.senior_id,
-        fullName: profiles?.find((p) => p.id === l.senior_id)?.full_name ?? "Your family member",
-        isEmergencyContact: l.is_emergency_contact,
-        relationship: l.relationship,
-      }));
-      setSeniors(merged);
+    if (!links?.length) {
+      setSeniors([]);
       setLoading(false);
+      return;
     }
 
-    load();
-    return () => {
-      mounted = false;
-    };
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("id, full_name, avatar_url")
+      .in(
+        "id",
+        links.map((l) => l.senior_id)
+      );
+
+    const merged = links.map((l) => ({
+      linkId: l.id,
+      seniorId: l.senior_id,
+      fullName: profiles?.find((p) => p.id === l.senior_id)?.full_name ?? "Your family member",
+      avatarUrl: profiles?.find((p) => p.id === l.senior_id)?.avatar_url ?? null,
+      isEmergencyContact: l.is_emergency_contact,
+      relationship: l.relationship,
+    }));
+    setSeniors(merged);
+    setLoading(false);
   }, [profile?.id]);
 
-  return { seniors, primarySenior: seniors[0] ?? null, loading };
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  return { seniors, primarySenior: seniors[0] ?? null, loading, reload: load };
 }

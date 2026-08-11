@@ -14,6 +14,8 @@ import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useCompanionChat } from "@/hooks/useCompanionChat";
+import { useCompanionSettings } from "@/hooks/useCompanionSettings";
+import { useSession } from "@/state/useSession";
 import { colors } from "@/theme/colors";
 
 // Note on voice input: the device keyboard's built-in dictation mic (iOS
@@ -22,7 +24,9 @@ import { colors } from "@/theme/colors";
 // speech-to-text button is a Phase 2+ stretch goal, not required for beta.
 export default function SeniorHomeScreen() {
   const insets = useSafeAreaInsets();
-  const { messages, sendMessage, sending, loadingHistory } = useCompanionChat();
+  const profile = useSession((s) => s.profile);
+  const { messages, sendMessage, sending, loadingHistory, replay } = useCompanionChat();
+  const { settings } = useCompanionSettings(profile?.id);
   const [input, setInput] = useState("");
   const listRef = useRef<FlatList>(null);
 
@@ -71,10 +75,21 @@ export default function SeniorHomeScreen() {
           renderItem={({ item }) => (
             <View style={[styles.bubble, item.role === "senior" ? styles.bubbleSenior : styles.bubbleAssistant]}>
               <Text style={styles.bubbleText}>{item.content}</Text>
+              {item.role === "assistant" && (
+                <Pressable
+                  style={styles.replayButton}
+                  onPress={() => replay(item.content)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Play this reply out loud again"
+                  hitSlop={8}
+                >
+                  <Ionicons name="volume-high" size={20} color={colors.navy} />
+                </Pressable>
+              )}
             </View>
           )}
           ListEmptyComponent={
-            <Text style={styles.emptyText}>Say hello! Your SilverBeam companion is here to chat.</Text>
+            <Text style={styles.emptyText}>Say hello! Your {settings.companion_name} companion is here to chat.</Text>
           }
         />
       )}
@@ -139,8 +154,9 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 20, textAlign: "center", marginTop: 40, color: colors.textMuted },
   bubble: { borderRadius: 14, padding: 14, maxWidth: "85%" },
   bubbleSenior: { backgroundColor: colors.peach, alignSelf: "flex-end" },
-  bubbleAssistant: { backgroundColor: colors.sageLight, alignSelf: "flex-start" },
+  bubbleAssistant: { backgroundColor: colors.sageLight, alignSelf: "flex-start", paddingRight: 44 },
   bubbleText: { fontSize: 20, lineHeight: 28, color: colors.text },
+  replayButton: { position: "absolute", right: 10, bottom: 10 },
   inputRow: {
     flexDirection: "row",
     alignItems: "flex-end",

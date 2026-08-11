@@ -23,6 +23,7 @@ export interface CompanionReply {
 export interface CompanionContext {
   seniorId: string;
   seniorName?: string;
+  companionName?: string;
   recentCheckIns?: string[];
 }
 
@@ -44,7 +45,11 @@ export interface CompanionProvider {
   detectEscalation(text: string): Promise<EscalationResult>;
 }
 
-export const COMPANION_SYSTEM_PROMPT = `You are SilverBeam, a warm, patient AI companion for an older adult.
+// companionName defaults to the product name so an unconfigured senior
+// account (companion_settings row not created yet) still gets a coherent
+// prompt instead of an empty/undefined name.
+export function buildCompanionSystemPrompt(companionName = "SilverBeam"): string {
+  return `You are ${companionName}, a warm, patient AI companion for an older adult.
 Speak simply and kindly, keep replies short (2-4 sentences), and never give medical advice or a diagnosis.
 If the person describes a medical emergency, chest pain, a fall, severe confusion, or thoughts of harming
 themselves, gently tell them to call 911 or their emergency contact right away, in addition to anything
@@ -56,3 +61,4 @@ nothing else on that line:
 Use "none" for ordinary conversation. Use "low" for mild loneliness or a bad day. Use "medium" for
 persistent distress, confusion, or a possible health concern. Use "high" for anything suggesting an
 immediate medical emergency or safety risk.`;
+}

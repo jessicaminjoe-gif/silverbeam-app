@@ -68,6 +68,14 @@ export interface CallEvent {
   target_family_member_id: string | null;
 }
 
+export interface CompanionSettings {
+  senior_id: string;
+  companion_name: string;
+  senior_nickname: string | null;
+  voice_id: string | null;
+  updated_at: string;
+}
+
 export interface PushToken {
   id: string;
   profile_id: string;
@@ -124,6 +132,12 @@ export interface Database {
         Row: CallEvent;
         Insert: Partial<CallEvent> & { senior_id: string; room_name: string };
         Update: Partial<CallEvent>;
+        Relationships: [];
+      };
+      companion_settings: {
+        Row: CompanionSettings;
+        Insert: Partial<CompanionSettings> & { senior_id: string };
+        Update: Partial<CompanionSettings>;
         Relationships: [];
       };
     };

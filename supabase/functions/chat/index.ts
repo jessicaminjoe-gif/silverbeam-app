@@ -134,6 +134,12 @@ Deno.serve(async (req) => {
       .order("occurred_at", { ascending: false })
       .limit(3);
 
+    const { data: companionSettings } = await userClient
+      .from("companion_settings")
+      .select("companion_name, senior_nickname")
+      .eq("senior_id", user.id)
+      .maybeSingle();
+
     const history = (recentMessages ?? [])
       .reverse()
       .map((m) => ({ role: m.role === "senior" ? ("user" as const) : ("assistant" as const), content: m.content }));
@@ -141,7 +147,11 @@ Deno.serve(async (req) => {
     const provider = getProvider();
     const reply = await provider.sendMessage(history, body.message, {
       seniorId: user.id,
-      seniorName: profile.full_name,
+      // Nickname is only how the companion addresses them in conversation —
+      // full_name stays the account's actual display name everywhere else
+      // (call bubbles, dashboard, History).
+      seniorName: companionSettings?.senior_nickname || profile.full_name,
+      companionName: companionSettings?.companion_name,
       recentCheckIns: (recentCheckIns ?? []).map((c) => c.summary).filter(Boolean) as string[],
     });
 
