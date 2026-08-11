@@ -13,7 +13,10 @@ export interface LinkedSenior {
 
 // A family member may eventually be linked to more than one senior; the MVP
 // dashboard uses the first result (most families in the beta cover one
-// parent), with the full list available for a future senior-picker.
+// parent, and during testing the "first" link is often a stale re-setup),
+// with the full list available for a future senior-picker. Ordered newest
+// link first so primarySenior always tracks whichever senior device was
+// most recently set up.
 export function useLinkedSeniors() {
   const profile = useSession((s) => s.profile);
   const [seniors, setSeniors] = useState<LinkedSenior[]>([]);
@@ -26,7 +29,8 @@ export function useLinkedSeniors() {
     const { data: links } = await supabase
       .from("senior_family_links")
       .select("id, senior_id, is_emergency_contact, relationship")
-      .eq("family_member_id", familyMemberId);
+      .eq("family_member_id", familyMemberId)
+      .order("created_at", { ascending: false });
 
     if (!links?.length) {
       setSeniors([]);
