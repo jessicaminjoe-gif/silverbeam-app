@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { ActivityIndicator, Platform, View } from "react-native";
 import { Slot, useRouter, useSegments } from "expo-router";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -22,6 +22,7 @@ function AuthGate() {
   const segments = useSegments();
   const router = useRouter();
   useRegisterPushToken(profile?.id);
+  const [pendingRoomUrl, setPendingRoomUrl] = useState<string | null>(null);
 
   // "Is calling" pushes carry { roomUrl } in their data payload (escalation
   // pushes carry no data at all, so this can't misfire on those). Handles
@@ -29,22 +30,26 @@ function AuthGate() {
   // from a tap (the app wasn't running at all when the notification came in).
   // Native only — expo-notifications' response APIs aren't implemented on
   // web at all and throw synchronously there, which crashed the whole app.
+  //
+  // This only captures the roomUrl — it deliberately does NOT navigate here.
+  // On a cold start this effect fires before <Slot/> ever mounts (the render
+  // below shows a plain spinner until `loading` is false), so a router.push
+  // this early has no navigator to act on and gets silently lost. The actual
+  // navigation happens in the effect below, once loading has settled.
   useEffect(() => {
     if (Platform.OS === "web") return;
 
-    function goToCallIfInvite(data: Record<string, unknown> | undefined) {
+    function captureRoomUrl(data: Record<string, unknown> | undefined) {
       const roomUrl = data?.roomUrl;
-      if (typeof roomUrl === "string") {
-        router.push({ pathname: "/(family)/call", params: { roomUrl } });
-      }
+      if (typeof roomUrl === "string") setPendingRoomUrl(roomUrl);
     }
 
     Notifications.getLastNotificationResponseAsync().then((response) => {
-      goToCallIfInvite(response?.notification.request.content.data);
+      captureRoomUrl(response?.notification.request.content.data);
     });
 
     const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
-      goToCallIfInvite(response.notification.request.content.data);
+      captureRoomUrl(response.notification.request.content.data);
     });
 
     return () => subscription.remove();
@@ -107,6 +112,17 @@ function AuthGate() {
       router.replace("/(family)/dashboard");
     }
   }, [profile, loading, segments]);
+
+  // Runs after the redirect effect above in the same commit, so on the
+  // render where loading first flips to false, this navigation lands after
+  // (and overrides) that effect's default route(family)/dashboard replace —
+  // otherwise a cold-start notification tap would land on Dashboard instead
+  // of the call it was meant to open.
+  useEffect(() => {
+    if (loading || !pendingRoomUrl || profile?.role !== "family") return;
+    router.push({ pathname: "/(family)/call", params: { roomUrl: pendingRoomUrl } });
+    setPendingRoomUrl(null);
+  }, [loading, pendingRoomUrl, profile]);
 
   if (loading) {
     return (
