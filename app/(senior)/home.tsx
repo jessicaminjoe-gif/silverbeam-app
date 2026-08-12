@@ -15,18 +15,16 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useCompanionChat } from "@/hooks/useCompanionChat";
 import { useCompanionSettings } from "@/hooks/useCompanionSettings";
+import { useVoiceInput } from "@/hooks/useVoiceInput";
 import { useSession } from "@/state/useSession";
 import { colors } from "@/theme/colors";
 
-// Note on voice input: the device keyboard's built-in dictation mic (iOS
-// and Android both provide one on any text field) lets a senior speak
-// instead of type with zero extra library work. A dedicated in-app
-// speech-to-text button is a Phase 2+ stretch goal, not required for beta.
 export default function SeniorHomeScreen() {
   const insets = useSafeAreaInsets();
   const profile = useSession((s) => s.profile);
   const { messages, sendMessage, sending, loadingHistory, replay } = useCompanionChat();
   const { settings } = useCompanionSettings(profile?.id);
+  const voice = useVoiceInput();
   const [input, setInput] = useState("");
   const listRef = useRef<FlatList>(null);
 
@@ -36,6 +34,19 @@ export default function SeniorHomeScreen() {
     setInput("");
     await sendMessage(text);
     requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
+  }
+
+  // Fills the message box with what it heard rather than sending straight
+  // away — gives the senior a chance to see (and fix, or just re-record)
+  // what was transcribed before it actually sends, which matters more here
+  // than for typing since speech recognition can mishear things.
+  async function handleMicPress() {
+    if (voice.state === "idle") {
+      await voice.startRecording();
+    } else if (voice.state === "recording") {
+      const text = await voice.stopRecording();
+      if (text) setInput((prev) => (prev ? `${prev} ${text}` : text));
+    }
   }
 
   return (
@@ -103,11 +114,24 @@ export default function SeniorHomeScreen() {
         >
           <Text style={styles.checkinButtonText}>Check In</Text>
         </Pressable>
+        <Pressable
+          style={[styles.micButton, voice.state === "recording" && styles.micButtonRecording]}
+          onPress={handleMicPress}
+          disabled={voice.state === "transcribing"}
+          accessibilityRole="button"
+          accessibilityLabel={voice.state === "recording" ? "Stop recording" : "Speak your message"}
+        >
+          {voice.state === "transcribing" ? (
+            <ActivityIndicator color={colors.white} />
+          ) : (
+            <Ionicons name={voice.state === "recording" ? "stop" : "mic"} size={26} color={colors.white} />
+          )}
+        </Pressable>
         <TextInput
           style={styles.input}
           value={input}
           onChangeText={setInput}
-          placeholder="Type or dictate a message..."
+          placeholder={voice.state === "recording" ? "Listening..." : "Type or tap the mic to speak..."}
           multiline
           accessibilityLabel="Message"
         />
@@ -174,6 +198,15 @@ const styles = StyleSheet.create({
     minHeight: 60,
   },
   checkinButtonText: { fontSize: 16, fontWeight: "600", color: colors.navy },
+  micButton: {
+    backgroundColor: colors.navy,
+    borderRadius: 30,
+    width: 60,
+    height: 60,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  micButtonRecording: { backgroundColor: colors.danger },
   input: {
     flex: 1,
     fontSize: 18,
