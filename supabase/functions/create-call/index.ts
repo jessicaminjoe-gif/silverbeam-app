@@ -20,11 +20,17 @@ const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const DAILY_API_KEY = Deno.env.get("DAILY_API_KEY")!;
 
-async function sendExpoPush(token: string, title: string, body: string, data: Record<string, unknown>) {
+async function sendExpoPush(
+  token: string,
+  title: string,
+  body: string,
+  data: Record<string, unknown>,
+  channelId?: string
+) {
   const res = await fetch("https://exp.host/--/api/v2/push/send", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ to: token, title, body, data, sound: "default", priority: "high" }),
+    body: JSON.stringify({ to: token, title, body, data, sound: "default", priority: "high", channelId }),
   });
   // Deliberately consuming the body, not just awaiting fetch() for headers —
   // during beta testing, calls to the exact same token with the exact same
@@ -179,9 +185,13 @@ Deno.serve(async (req) => {
       .eq("profile_id", familyMemberId);
     if (tokensError) console.error("[create-call] push_tokens lookup failed:", tokensError.message);
     for (const t of tokens ?? []) {
-      await sendExpoPush(t.token, `${profile.full_name} is calling`, "Tap to join the video call", {
-        roomUrl: room.url,
-      });
+      await sendExpoPush(
+        t.token,
+        `${profile.full_name} is calling`,
+        "Tap to join the video call",
+        { roomUrl: room.url },
+        "calls"
+      );
     }
 
     return new Response(JSON.stringify({ roomUrl: seniorRoomUrl }), {

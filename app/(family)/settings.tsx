@@ -54,13 +54,13 @@ export default function SettingsScreen() {
         </View>
       </View>
 
-      <Text style={styles.subheading}>Linked family members</Text>
+      <Text style={styles.subheading}>Linked seniors</Text>
 
       {!loading && (
         <FlatList
           data={seniors}
           keyExtractor={(item) => item.linkId}
-          renderItem={({ item }) => <SeniorContactSettings senior={item} onSeniorAvatarChanged={reload} />}
+          renderItem={({ item }) => <SeniorContactSettings senior={item} onChanged={reload} />}
           ListEmptyComponent={
             <Text style={styles.emptyText}>
               Not linked to anyone yet. Contact the SilverBeam team to get connected to your family member's

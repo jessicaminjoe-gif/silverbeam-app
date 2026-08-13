@@ -3,7 +3,8 @@ import { View, Text, FlatList, StyleSheet, ActivityIndicator, Pressable, Refresh
 import { router } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { supabase } from "@/lib/supabase";
-import { useLinkedSeniors } from "@/hooks/useLinkedSeniors";
+import { useActiveSenior } from "@/hooks/useActiveSenior";
+import { SeniorSwitcher } from "@/components/SeniorSwitcher";
 import { colors } from "@/theme/colors";
 import type { CallEvent, CheckIn, EscalationEvent } from "@/types/database";
 
@@ -20,14 +21,14 @@ type HistoryItem =
   | { kind: "call"; id: string; at: string; data: CallEvent };
 
 export default function SeniorProfileScreen() {
-  const { primarySenior, loading: loadingSeniors } = useLinkedSeniors();
+  const { activeSenior, seniors, loading: loadingSeniors, setActiveSeniorId } = useActiveSenior();
   const [items, setItems] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
-    if (!primarySenior) return;
-    const seniorId = primarySenior.seniorId;
+    if (!activeSenior) return;
+    const seniorId = activeSenior.seniorId;
     const [{ data: alerts }, { data: checkIns }, { data: calls }] = await Promise.all([
       supabase.from("escalation_events").select("*").eq("senior_id", seniorId),
       supabase.from("check_ins").select("*").eq("senior_id", seniorId),
@@ -42,7 +43,7 @@ export default function SeniorProfileScreen() {
 
     setItems(merged);
     setLoading(false);
-  }, [primarySenior?.seniorId]);
+  }, [activeSenior?.seniorId]);
 
   // Tabs stay mounted when you switch away, so a plain mount-only fetch
   // would never pick up an escalation that fires while the app is already
@@ -67,7 +68,7 @@ export default function SeniorProfileScreen() {
     );
   }
 
-  if (!primarySenior) {
+  if (!activeSenior) {
     return (
       <View style={styles.center}>
         <Text style={styles.emptyText}>No linked senior account yet.</Text>
@@ -81,7 +82,12 @@ export default function SeniorProfileScreen() {
       keyExtractor={(item) => item.id}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       contentContainerStyle={styles.list}
-      ListHeaderComponent={<Text style={styles.heading}>{primarySenior.fullName} — History</Text>}
+      ListHeaderComponent={
+        <View style={{ gap: 4, marginBottom: 8 }}>
+          <SeniorSwitcher activeSenior={activeSenior} seniors={seniors} onSwitch={setActiveSeniorId} />
+          <Text style={styles.subheading}>History</Text>
+        </View>
+      }
       renderItem={({ item }) => {
         if (item.kind === "alert") {
           const a = item.data;
@@ -130,7 +136,7 @@ export default function SeniorProfileScreen() {
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, backgroundColor: colors.cream },
   list: { padding: 16, gap: 10, backgroundColor: colors.cream },
-  heading: { fontSize: 20, fontWeight: "700", marginBottom: 8, color: colors.navy },
+  subheading: { fontSize: 15, fontWeight: "600", color: colors.textMuted },
   emptyText: { fontSize: 16, textAlign: "center", color: colors.textMuted },
   row: {
     flexDirection: "row",

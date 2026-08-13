@@ -11,10 +11,10 @@ import type { LinkedSenior } from "@/hooks/useLinkedSeniors";
 
 interface Props {
   senior: LinkedSenior;
-  onSeniorAvatarChanged: () => void;
+  onChanged: () => void;
 }
 
-export function SeniorContactSettings({ senior, onSeniorAvatarChanged }: Props) {
+export function SeniorContactSettings({ senior, onChanged }: Props) {
   const { settings, loading: loadingSettings, reload } = useCompanionSettings(senior.seniorId);
   const [relationship, setRelationship] = useState(senior.relationship ?? "");
   const [companionName, setCompanionName] = useState(settings.companion_name);
@@ -67,6 +67,28 @@ export function SeniorContactSettings({ senior, onSeniorAvatarChanged }: Props) 
     }
   }
 
+  function handleRemove() {
+    Alert.alert(
+      "Remove this connection?",
+      `You'll stop seeing ${senior.fullName}'s updates and alerts. This can't be undone from the app — you'd need to be re-linked.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: async () => {
+            const { error } = await supabase.from("senior_family_links").delete().eq("id", senior.linkId);
+            if (error) {
+              Alert.alert("Couldn't remove", "Please try again.");
+              return;
+            }
+            onChanged();
+          },
+        },
+      ]
+    );
+  }
+
   async function handleChangeSeniorAvatar() {
     setUploadingAvatar(true);
     try {
@@ -74,7 +96,7 @@ export function SeniorContactSettings({ senior, onSeniorAvatarChanged }: Props) 
       if (!url) return;
       const { error } = await supabase.from("profiles").update({ avatar_url: url }).eq("id", senior.seniorId);
       if (error) throw error;
-      onSeniorAvatarChanged();
+      onChanged();
     } catch {
       Alert.alert("Couldn't update photo", "Please try again.");
     } finally {
@@ -106,7 +128,17 @@ export function SeniorContactSettings({ senior, onSeniorAvatarChanged }: Props) 
             <Text style={styles.changePhotoText}>Change their photo</Text>
           </Pressable>
         </View>
+        <Pressable onPress={handleRemove} accessibilityRole="button" accessibilityLabel={`Remove ${senior.fullName}`} hitSlop={8}>
+          <Ionicons name="close-circle-outline" size={24} color={colors.textMuted} />
+        </Pressable>
       </View>
+
+      {/* Selectable (long-press to copy) so it can be sent to the SilverBeam
+          team if this senior's device ever needs to be re-linked, e.g.
+          after a reinstall. */}
+      <Text style={styles.seniorIdText} selectable>
+        Senior ID: {senior.seniorId}
+      </Text>
 
       <Field label="Your relationship" hint='Shows on your call bubble, e.g. "Son", "Daughter", "Neighbor"'>
         <TextInput
@@ -210,6 +242,7 @@ const styles = StyleSheet.create({
   seniorName: { fontSize: 17, fontWeight: "700", color: colors.text },
   badge: { fontSize: 12, color: "#5F7355", fontWeight: "700" },
   changePhotoText: { fontSize: 13, fontWeight: "600", color: colors.terracotta, marginTop: 2 },
+  seniorIdText: { fontSize: 11, color: colors.textMuted, marginTop: -8 },
   field: { gap: 6 },
   fieldLabel: { fontSize: 14, fontWeight: "600", color: colors.navy },
   fieldHint: { fontSize: 12, color: colors.textMuted, marginTop: -4 },

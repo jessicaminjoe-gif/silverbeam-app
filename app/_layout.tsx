@@ -9,6 +9,36 @@ import { useRegisterPushToken } from "@/hooks/useRegisterPushToken";
 import { colors } from "@/theme/colors";
 import type { Profile } from "@/types/database";
 
+// Without an explicit handler, expo-notifications doesn't show anything
+// while the app is in the foreground — pushes only appeared if the app was
+// backgrounded/closed. This makes them show (with sound) regardless of
+// whether the app is open, same as any other notification.
+if (Platform.OS !== "web") {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: false,
+    }),
+  });
+}
+
+// Dedicated high-importance channel for "is calling" pushes (create-call
+// targets this by name) — max importance + a distinct vibration pattern so
+// an incoming call reads as more urgent than a routine notification. Not a
+// true looping ringtone (that needs a foreground service / full-screen
+// intent, a bigger native feature) but a real step up from the default
+// channel's single quiet buzz.
+if (Platform.OS === "android") {
+  Notifications.setNotificationChannelAsync("calls", {
+    name: "Incoming calls",
+    importance: Notifications.AndroidImportance.MAX,
+    vibrationPattern: [0, 500, 250, 500],
+    sound: "default",
+    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+  });
+}
+
 export default function RootLayout() {
   return (
     <SafeAreaProvider>

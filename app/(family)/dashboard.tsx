@@ -3,7 +3,8 @@ import { View, Text, FlatList, StyleSheet, ActivityIndicator, Pressable, Refresh
 import { router } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { supabase } from "@/lib/supabase";
-import { useLinkedSeniors } from "@/hooks/useLinkedSeniors";
+import { useActiveSenior } from "@/hooks/useActiveSenior";
+import { SeniorSwitcher } from "@/components/SeniorSwitcher";
 import { colors } from "@/theme/colors";
 import type { CheckIn, EscalationEvent } from "@/types/database";
 
@@ -15,32 +16,32 @@ const MOOD_EMOJI: Record<string, string> = {
 };
 
 export default function DashboardScreen() {
-  const { primarySenior, loading: loadingSeniors } = useLinkedSeniors();
+  const { activeSenior, seniors, loading: loadingSeniors, setActiveSeniorId } = useActiveSenior();
   const [checkIns, setCheckIns] = useState<CheckIn[]>([]);
   const [activeEscalations, setActiveEscalations] = useState<EscalationEvent[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    if (!primarySenior) return;
+    if (!activeSenior) return;
     const [{ data: checkInData }, { data: escalationData }] = await Promise.all([
       supabase
         .from("check_ins")
         .select("*")
-        .eq("senior_id", primarySenior.seniorId)
+        .eq("senior_id", activeSenior.seniorId)
         .order("occurred_at", { ascending: false })
         .limit(30),
       supabase
         .from("escalation_events")
         .select("*")
-        .eq("senior_id", primarySenior.seniorId)
+        .eq("senior_id", activeSenior.seniorId)
         .eq("resolved", false)
         .order("created_at", { ascending: false }),
     ]);
     setCheckIns((checkInData as CheckIn[]) ?? []);
     setActiveEscalations((escalationData as EscalationEvent[]) ?? []);
     setLoading(false);
-  }, [primarySenior?.seniorId]);
+  }, [activeSenior?.seniorId]);
 
   // Tabs stay mounted when you switch away, so a plain mount-only fetch
   // would never pick up an escalation that fires while the app is already
@@ -65,7 +66,7 @@ export default function DashboardScreen() {
     );
   }
 
-  if (!primarySenior) {
+  if (!activeSenior) {
     return (
       <View style={styles.center}>
         <Text style={styles.emptyText}>
@@ -83,7 +84,7 @@ export default function DashboardScreen() {
       contentContainerStyle={styles.list}
       ListHeaderComponent={
         <View style={{ gap: 12 }}>
-          <Text style={styles.heading}>{primarySenior.fullName}</Text>
+          <SeniorSwitcher activeSenior={activeSenior} seniors={seniors} onSwitch={setActiveSeniorId} />
           {activeEscalations.map((e) => (
             <Pressable
               key={e.id}
@@ -114,7 +115,6 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, backgroundColor: colors.cream },
   list: { padding: 16, gap: 10, backgroundColor: colors.cream },
-  heading: { fontSize: 24, fontWeight: "700", color: colors.navy },
   emptyText: { fontSize: 16, textAlign: "center", color: colors.textMuted },
   checkInRow: {
     flexDirection: "row",

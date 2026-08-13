@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -44,8 +45,14 @@ export default function SeniorHomeScreen() {
     if (voice.state === "idle") {
       await voice.startRecording();
     } else if (voice.state === "recording") {
-      const text = await voice.stopRecording();
-      if (text) setInput((prev) => (prev ? `${prev} ${text}` : text));
+      const result = await voice.stopRecording();
+      if (result.text) {
+        setInput((prev) => (prev ? `${prev} ${result.text}` : result.text ?? ""));
+      } else {
+        // Friendly wording for the senior; the real error is already
+        // logged in the hook for us to diagnose separately.
+        Alert.alert("Sorry, I didn't catch that", "Please try again.");
+      }
     }
   }
 

@@ -7,6 +7,11 @@ interface TranscribeResponse {
   text: string;
 }
 
+export interface TranscribeResult {
+  text: string | null;
+  errorMessage?: string;
+}
+
 export type VoiceInputState = "idle" | "recording" | "transcribing";
 
 // Records locally via expo-av, then uploads to the transcribe-speech Edge
@@ -29,12 +34,12 @@ export function useVoiceInput() {
     return true;
   }, []);
 
-  // Returns the transcribed text, or null if recording/transcription failed
-  // (caller decides how to surface that — the chat input just leaves
-  // whatever was already typed unchanged).
-  const stopRecording = useCallback(async (): Promise<string | null> => {
+  // Returns the transcribed text, or an errorMessage if recording/
+  // transcription failed — this used to fail completely silently, which
+  // made "the mic doesn't work" impossible to diagnose from a report alone.
+  const stopRecording = useCallback(async (): Promise<TranscribeResult> => {
     const recording = recordingRef.current;
-    if (!recording) return null;
+    if (!recording) return { text: null, errorMessage: "No recording in progress" };
     setState("transcribing");
     try {
       await recording.stopAndUnloadAsync();
@@ -43,17 +48,22 @@ export function useVoiceInput() {
       await Audio.setAudioModeAsync({ allowsRecordingIOS: false, playsInSilentModeIOS: true });
       const uri = recording.getURI();
       recordingRef.current = null;
-      if (!uri) return null;
+      if (!uri) return { text: null, errorMessage: "Recording produced no audio file" };
 
       const audioBase64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
       const { data, error } = await supabase.functions.invoke<TranscribeResponse>("transcribe-speech", {
         body: { audioBase64, mimeType: "audio/m4a" },
       });
       if (error || !data?.text) {
-        console.error("[useVoiceInput] transcribe-speech failed:", error?.message);
-        return null;
+        const message = error?.message ?? "No speech detected";
+        console.error("[useVoiceInput] transcribe-speech failed:", message);
+        return { text: null, errorMessage: message };
       }
-      return data.text;
+      return { text: data.text };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error("[useVoiceInput] recording failed:", message);
+      return { text: null, errorMessage: message };
     } finally {
       setState("idle");
     }
