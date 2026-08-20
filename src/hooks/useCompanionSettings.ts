@@ -2,10 +2,18 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import type { CompanionSettings } from "@/types/database";
 
+const DEFAULT_CHECK_IN_OPTIONS = [
+  { label: "Great", emoji: "😊" },
+  { label: "Okay", emoji: "🙂" },
+  { label: "Not great", emoji: "😕" },
+  { label: "Rough day", emoji: "😣" },
+];
+
 const DEFAULTS: Omit<CompanionSettings, "senior_id" | "updated_at"> = {
   companion_name: "SilverBeam",
   senior_nickname: null,
   voice_id: null,
+  check_in_options: DEFAULT_CHECK_IN_OPTIONS,
 };
 
 // Used by both the senior (reading their own settings) and family (reading

@@ -27,9 +27,15 @@ export interface CheckIn {
   senior_id: string;
   occurred_at: string;
   mood: Mood | null;
+  mood_emoji: string | null;
   summary: string | null;
   completed: boolean;
   created_at: string;
+}
+
+export interface CheckInOption {
+  label: string;
+  emoji: string;
 }
 
 export interface ConversationMessage {
@@ -73,6 +79,7 @@ export interface CompanionSettings {
   companion_name: string;
   senior_nickname: string | null;
   voice_id: string | null;
+  check_in_options: CheckInOption[];
   updated_at: string;
 }
 

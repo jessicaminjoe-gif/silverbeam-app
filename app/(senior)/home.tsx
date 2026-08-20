@@ -23,11 +23,13 @@ import { colors } from "@/theme/colors";
 export default function SeniorHomeScreen() {
   const insets = useSafeAreaInsets();
   const profile = useSession((s) => s.profile);
-  const { messages, sendMessage, sending, loadingHistory, replay } = useCompanionChat();
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const { messages, sendMessage, sending, loadingHistory, replay } = useCompanionChat(soundEnabled);
   const { settings } = useCompanionSettings(profile?.id);
   const voice = useVoiceInput();
   const [input, setInput] = useState("");
   const listRef = useRef<FlatList>(null);
+  const seniorDisplayName = settings.senior_nickname || profile?.full_name || "there";
 
   async function handleSend() {
     const text = input.trim();
@@ -63,10 +65,20 @@ export default function SeniorHomeScreen() {
       keyboardVerticalOffset={insets.top}
     >
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <Text style={styles.title}>
-          <Text style={styles.titleSilver}>Silver</Text>
-          <Text style={styles.titleBeam}>Beam</Text>
-        </Text>
+        <View style={styles.titleRow}>
+          <Text style={styles.title}>
+            <Text style={styles.titleSilver}>Silver</Text>
+            <Text style={styles.titleBeam}>Beam</Text>
+          </Text>
+          <Pressable
+            onPress={() => setSoundEnabled((prev) => !prev)}
+            accessibilityRole="button"
+            accessibilityLabel={soundEnabled ? "Turn off spoken replies" : "Turn on spoken replies"}
+            hitSlop={8}
+          >
+            <Ionicons name={soundEnabled ? "volume-high" : "volume-mute"} size={28} color={colors.navy} />
+          </Pressable>
+        </View>
         <Pressable
           style={styles.callButton}
           onPress={() => router.push("/(senior)/call-picker")}
@@ -107,7 +119,9 @@ export default function SeniorHomeScreen() {
             </View>
           )}
           ListEmptyComponent={
-            <Text style={styles.emptyText}>Say hello! Your {settings.companion_name} companion is here to chat.</Text>
+            <Text style={styles.emptyText}>
+              Hi {seniorDisplayName}! {settings.companion_name} is here to chat or help you connect with a loved one.
+            </Text>
           }
         />
       )}
@@ -131,7 +145,7 @@ export default function SeniorHomeScreen() {
           {voice.state === "transcribing" ? (
             <ActivityIndicator color={colors.white} />
           ) : (
-            <Ionicons name={voice.state === "recording" ? "stop" : "mic"} size={26} color={colors.white} />
+            <Ionicons name={voice.state === "recording" ? "stop" : "mic"} size={34} color={colors.white} />
           )}
         </Pressable>
         <TextInput
@@ -165,6 +179,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.cream,
     gap: 12,
   },
+  titleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   title: { fontSize: 28, fontWeight: "700" },
   titleSilver: { color: colors.navy },
   titleBeam: { color: colors.terracotta },
@@ -182,7 +197,7 @@ const styles = StyleSheet.create({
   callButtonText: { color: colors.white, fontSize: 20, fontWeight: "700" },
   callButtonSubtext: { color: colors.white, fontSize: 14, opacity: 0.85, marginTop: 2 },
   list: { padding: 16, gap: 10, flexGrow: 1, backgroundColor: colors.cream },
-  emptyText: { fontSize: 20, textAlign: "center", marginTop: 40, color: colors.textMuted },
+  emptyText: { fontSize: 26, fontWeight: "600", textAlign: "center", marginTop: 40, lineHeight: 34, color: colors.navy, paddingHorizontal: 12 },
   bubble: { borderRadius: 14, padding: 14, maxWidth: "85%" },
   bubbleSenior: { backgroundColor: colors.peach, alignSelf: "flex-end" },
   bubbleAssistant: { backgroundColor: colors.sageLight, alignSelf: "flex-start", paddingRight: 44 },
@@ -207,9 +222,9 @@ const styles = StyleSheet.create({
   checkinButtonText: { fontSize: 16, fontWeight: "600", color: colors.navy },
   micButton: {
     backgroundColor: colors.navy,
-    borderRadius: 30,
-    width: 60,
-    height: 60,
+    borderRadius: 38,
+    width: 76,
+    height: 76,
     alignItems: "center",
     justifyContent: "center",
   },

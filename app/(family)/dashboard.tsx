@@ -100,7 +100,7 @@ export default function DashboardScreen() {
       }
       renderItem={({ item }) => (
         <View style={styles.checkInRow}>
-          <Text style={styles.moodEmoji}>{item.mood ? MOOD_EMOJI[item.mood] : "•"}</Text>
+          <Text style={styles.moodEmoji}>{item.mood_emoji ?? (item.mood ? MOOD_EMOJI[item.mood] : "•")}</Text>
           <View style={{ flex: 1 }}>
             <Text style={styles.summary}>{item.summary ?? "Check-in recorded"}</Text>
             <Text style={styles.date}>{new Date(item.occurred_at).toLocaleString()}</Text>

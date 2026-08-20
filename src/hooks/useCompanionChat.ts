@@ -10,7 +10,7 @@ export interface ChatEntry {
   content: string;
 }
 
-export function useCompanionChat() {
+export function useCompanionChat(soundEnabled: boolean) {
   const profile = useSession((s) => s.profile);
   const [messages, setMessages] = useState<ChatEntry[]>([]);
   const [sending, setSending] = useState(false);
@@ -48,7 +48,7 @@ export function useCompanionChat() {
           ]);
           // Fire-and-forget: don't block the text reply (which already
           // rendered) on how long speech synthesis + playback takes.
-          speak(data.message);
+          if (soundEnabled) speak(data.message);
         }
       } catch (err) {
         setMessages((prev) => [
@@ -63,7 +63,7 @@ export function useCompanionChat() {
         setSending(false);
       }
     },
-    [profile?.id]
+    [profile?.id, soundEnabled]
   );
 
   const replay = useCallback((content: string) => {

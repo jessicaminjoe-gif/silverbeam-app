@@ -8,6 +8,9 @@ import { VOICE_OPTIONS, VOICE_PREVIEW_TEXT } from "@/lib/voiceOptions";
 import { useCompanionSettings } from "@/hooks/useCompanionSettings";
 import { colors } from "@/theme/colors";
 import type { LinkedSenior } from "@/hooks/useLinkedSeniors";
+import type { CheckInOption } from "@/types/database";
+
+const MAX_CHECK_IN_OPTIONS = 5;
 
 interface Props {
   senior: LinkedSenior;
@@ -20,6 +23,7 @@ export function SeniorContactSettings({ senior, onChanged }: Props) {
   const [companionName, setCompanionName] = useState(settings.companion_name);
   const [nickname, setNickname] = useState(settings.senior_nickname ?? "");
   const [voiceId, setVoiceId] = useState(settings.voice_id ?? VOICE_OPTIONS[0].voiceId);
+  const [checkInOptions, setCheckInOptions] = useState<CheckInOption[]>(settings.check_in_options);
   const [savingField, setSavingField] = useState<string | null>(null);
   const [previewingVoice, setPreviewingVoice] = useState<string | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -30,8 +34,9 @@ export function SeniorContactSettings({ senior, onChanged }: Props) {
       setCompanionName(settings.companion_name);
       setNickname(settings.senior_nickname ?? "");
       setVoiceId(settings.voice_id ?? VOICE_OPTIONS[0].voiceId);
+      setCheckInOptions(settings.check_in_options);
     }
-  }, [loadingSettings, settings.companion_name, settings.senior_nickname, settings.voice_id]);
+  }, [loadingSettings, settings.companion_name, settings.senior_nickname, settings.voice_id, settings.check_in_options]);
 
   async function saveRelationship() {
     const value = relationship.trim();
@@ -42,17 +47,45 @@ export function SeniorContactSettings({ senior, onChanged }: Props) {
     if (error) Alert.alert("Couldn't save", "Please try again.");
   }
 
-  async function saveCompanionSettings(patch: Partial<{ companion_name: string; senior_nickname: string | null; voice_id: string }>) {
+  async function saveCompanionSettings(
+    patch: Partial<{
+      companion_name: string;
+      senior_nickname: string | null;
+      voice_id: string;
+      check_in_options: CheckInOption[];
+    }>
+  ) {
     setSavingField(Object.keys(patch)[0]);
-    const { error } = await supabase
-      .from("companion_settings")
-      .upsert({ senior_id: senior.seniorId, companion_name: companionName, senior_nickname: nickname || null, voice_id: voiceId, ...patch });
+    const { error } = await supabase.from("companion_settings").upsert({
+      senior_id: senior.seniorId,
+      companion_name: companionName,
+      senior_nickname: nickname || null,
+      voice_id: voiceId,
+      check_in_options: checkInOptions,
+      ...patch,
+    });
     setSavingField(null);
     if (error) {
       Alert.alert("Couldn't save", "Please try again.");
       return;
     }
     reload();
+  }
+
+  function updateCheckInOption(index: number, patch: Partial<CheckInOption>) {
+    setCheckInOptions((prev) => prev.map((opt, i) => (i === index ? { ...opt, ...patch } : opt)));
+  }
+
+  function addCheckInOption() {
+    if (checkInOptions.length >= MAX_CHECK_IN_OPTIONS) return;
+    const next = [...checkInOptions, { label: "", emoji: "🙂" }];
+    setCheckInOptions(next);
+  }
+
+  function removeCheckInOption(index: number) {
+    const next = checkInOptions.filter((_, i) => i !== index);
+    setCheckInOptions(next);
+    saveCompanionSettings({ check_in_options: next });
   }
 
   async function handlePreviewVoice(id: string) {
@@ -202,6 +235,49 @@ export function SeniorContactSettings({ senior, onChanged }: Props) {
         </View>
       </Field>
 
+      <Field label="Check-in options" hint={`Up to ${MAX_CHECK_IN_OPTIONS} choices for "How are you feeling today?"`}>
+        <View style={{ gap: 8 }}>
+          {checkInOptions.map((option, index) => (
+            <View key={index} style={styles.checkInOptionRow}>
+              <TextInput
+                style={styles.checkInEmojiInput}
+                value={option.emoji}
+                onChangeText={(text) => updateCheckInOption(index, { emoji: text })}
+                onBlur={() => saveCompanionSettings({ check_in_options: checkInOptions })}
+                maxLength={4}
+                accessibilityLabel={`Emoji for option ${index + 1}`}
+              />
+              <TextInput
+                style={[styles.input, { flex: 1 }]}
+                value={option.label}
+                onChangeText={(text) => updateCheckInOption(index, { label: text })}
+                onBlur={() => saveCompanionSettings({ check_in_options: checkInOptions })}
+                placeholder="Option label"
+                accessibilityLabel={`Label for option ${index + 1}`}
+              />
+              <Pressable
+                onPress={() => removeCheckInOption(index)}
+                disabled={checkInOptions.length <= 1}
+                accessibilityRole="button"
+                accessibilityLabel={`Remove option ${index + 1}`}
+                hitSlop={8}
+              >
+                <Ionicons
+                  name="close-circle-outline"
+                  size={22}
+                  color={checkInOptions.length <= 1 ? colors.border : colors.textMuted}
+                />
+              </Pressable>
+            </View>
+          ))}
+          {checkInOptions.length < MAX_CHECK_IN_OPTIONS && (
+            <Pressable onPress={addCheckInOption} accessibilityRole="button" accessibilityLabel="Add check-in option">
+              <Text style={styles.addOptionText}>+ Add option</Text>
+            </Pressable>
+          )}
+        </View>
+      </Field>
+
       {savingField && (
         <View style={styles.savingRow}>
           <ActivityIndicator size="small" color={colors.terracotta} />
@@ -273,4 +349,17 @@ const styles = StyleSheet.create({
   voiceLabelSelected: { color: colors.white },
   savingRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   savingText: { fontSize: 12, color: colors.textMuted },
+  checkInOptionRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  checkInEmojiInput: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    fontSize: 18,
+    width: 48,
+    textAlign: "center",
+    backgroundColor: colors.cream,
+  },
+  addOptionText: { fontSize: 14, fontWeight: "600", color: colors.terracotta },
 });

@@ -14,7 +14,11 @@ export default function CallPickerScreen() {
     if (loading || autoNavigated.current) return;
     if (contacts.length === 1) {
       autoNavigated.current = true;
-      router.replace({ pathname: "/(senior)/call", params: { familyMemberId: contacts[0].familyMemberId } });
+      const contact = contacts[0];
+      router.replace({
+        pathname: "/(senior)/call",
+        params: { familyMemberId: contact.familyMemberId, contactLabel: contact.relationship || contact.fullName },
+      });
     }
   }, [loading, contacts]);
 
@@ -50,10 +54,16 @@ export default function CallPickerScreen() {
 }
 
 function ContactBubble({ contact }: { contact: CallContact }) {
+  const primaryLabel = contact.relationship || contact.fullName;
   return (
     <Pressable
       style={styles.bubble}
-      onPress={() => router.push({ pathname: "/(senior)/call", params: { familyMemberId: contact.familyMemberId } })}
+      onPress={() =>
+        router.push({
+          pathname: "/(senior)/call",
+          params: { familyMemberId: contact.familyMemberId, contactLabel: primaryLabel },
+        })
+      }
       accessibilityRole="button"
       accessibilityLabel={`Call ${contact.fullName}${contact.relationship ? `, ${contact.relationship}` : ""}`}
     >
@@ -65,9 +75,13 @@ function ContactBubble({ contact }: { contact: CallContact }) {
         </View>
       )}
       <Text style={styles.name} numberOfLines={1}>
-        {contact.fullName}
+        {primaryLabel}
       </Text>
-      {contact.relationship && <Text style={styles.tag}>{contact.relationship}</Text>}
+      {contact.relationship && (
+        <Text style={styles.tag} numberOfLines={1}>
+          {contact.fullName}
+        </Text>
+      )}
     </Pressable>
   );
 }
@@ -90,6 +104,6 @@ const styles = StyleSheet.create({
   avatar: { width: 84, height: 84, borderRadius: 42 },
   avatarPlaceholder: { backgroundColor: colors.sageLight, alignItems: "center", justifyContent: "center" },
   avatarInitial: { fontSize: 32, fontWeight: "700", color: colors.navy },
-  name: { fontSize: 18, fontWeight: "700", color: colors.text, maxWidth: "90%" },
-  tag: { fontSize: 14, color: colors.textMuted },
+  name: { fontSize: 21, fontWeight: "800", color: colors.navy, maxWidth: "90%" },
+  tag: { fontSize: 13, color: colors.textMuted },
 });

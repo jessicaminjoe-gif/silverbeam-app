@@ -10,6 +10,12 @@
 
 import { createClient } from "npm:@supabase/supabase-js@^2.45.0";
 
+// Supabase/Deno Deploy global for scheduling work that continues after the
+// response has been sent — not in the standard lib types, hence the manual
+// declare. Used below to repeat the "is calling" push without making the
+// senior wait on those extra sends before their own call screen loads.
+declare const EdgeRuntime: { waitUntil: (promise: Promise<unknown>) => void } | undefined;
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -42,6 +48,25 @@ async function sendExpoPush(
   // request alive until Expo's API has actually finished it.
   const resBody = await res.text();
   if (!res.ok) console.error("[create-call] push send failed:", res.status, resBody);
+}
+
+// A single push is easy to miss — repeats it twice more, ~4s apart, as a
+// lightweight stand-in for a real ringtone-style call notification. Not a
+// true looping/full-screen incoming-call UI (that needs a foreground
+// service + the sensitive USE_FULL_SCREEN_INTENT permission, a bigger
+// native feature); this just makes the single push feel less like it
+// vanished after one buzz.
+async function scheduleRepeatPushes(
+  token: string,
+  title: string,
+  body: string,
+  data: Record<string, unknown>,
+  channelId: string
+) {
+  for (let i = 0; i < 2; i++) {
+    await new Promise((resolve) => setTimeout(resolve, 4000));
+    await sendExpoPush(token, title, body, data, channelId);
+  }
 }
 
 Deno.serve(async (req) => {
@@ -128,6 +153,9 @@ Deno.serve(async (req) => {
           // property), so both sides get the simpler toolbar.
           enable_people_ui: false,
           enable_network_ui: false,
+          // Skips Daily's "check your camera/mic, then click Join" lobby —
+          // both sides land straight in the call.
+          enable_prejoin_ui: false,
           start_video_off: false,
           start_audio_off: false,
         },
@@ -185,16 +213,16 @@ Deno.serve(async (req) => {
       .eq("profile_id", familyMemberId);
     if (tokensError) console.error("[create-call] push_tokens lookup failed:", tokensError.message);
     for (const t of tokens ?? []) {
-      await sendExpoPush(
-        t.token,
-        `${profile.full_name} is calling`,
-        "Tap to join the video call",
-        { roomUrl: room.url },
-        "calls"
-      );
+      const title = `${profile.full_name} is calling`;
+      const body = "Tap to join the video call";
+      const data = { roomUrl: room.url };
+      await sendExpoPush(t.token, title, body, data, "calls");
+      if (typeof EdgeRuntime !== "undefined") {
+        EdgeRuntime.waitUntil(scheduleRepeatPushes(t.token, title, body, data, "calls"));
+      }
     }
 
-    return new Response(JSON.stringify({ roomUrl: seniorRoomUrl }), {
+    return new Response(JSON.stringify({ roomUrl: seniorRoomUrl, roomName: room.name }), {
       headers: { ...corsHeaders, "content-type": "application/json" },
     });
   } catch (err) {
