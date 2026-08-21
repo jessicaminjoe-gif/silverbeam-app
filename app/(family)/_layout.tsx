@@ -28,6 +28,7 @@ export default function FamilyLayout() {
       {/* Reachable via router.push, intentionally hidden from the tab bar */}
       <Tabs.Screen name="escalation-detail" options={{ href: null, title: "Alert" }} />
       <Tabs.Screen name="call" options={{ href: null, title: "Video Call" }} />
+      <Tabs.Screen name="call-outbound" options={{ href: null, title: "Video Call" }} />
     </Tabs>
   );
 }

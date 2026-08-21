@@ -52,16 +52,15 @@ function AuthGate() {
   const segments = useSegments();
   const router = useRouter();
   useRegisterPushToken(profile?.id);
-  const [pendingRoomUrl, setPendingRoomUrl] = useState<string | null>(null);
+  const [pendingNotification, setPendingNotification] = useState<Record<string, unknown> | null>(null);
 
-  // "Is calling" pushes carry { roomUrl } in their data payload (escalation
-  // pushes carry no data at all, so this can't misfire on those). Handles
-  // both a tap while the app is backgrounded/foregrounded and a cold start
-  // from a tap (the app wasn't running at all when the notification came in).
-  // Native only — expo-notifications' response APIs aren't implemented on
-  // web at all and throw synchronously there, which crashed the whole app.
+  // Handles both a tap while the app is backgrounded/foregrounded and a
+  // cold start from a tap (the app wasn't running at all when the
+  // notification came in). Native only — expo-notifications' response APIs
+  // aren't implemented on web at all and throw synchronously there, which
+  // crashed the whole app.
   //
-  // This only captures the roomUrl — it deliberately does NOT navigate here.
+  // This only captures the data — it deliberately does NOT navigate here.
   // On a cold start this effect fires before <Slot/> ever mounts (the render
   // below shows a plain spinner until `loading` is false), so a router.push
   // this early has no navigator to act on and gets silently lost. The actual
@@ -69,17 +68,16 @@ function AuthGate() {
   useEffect(() => {
     if (Platform.OS === "web") return;
 
-    function captureRoomUrl(data: Record<string, unknown> | undefined) {
-      const roomUrl = data?.roomUrl;
-      if (typeof roomUrl === "string") setPendingRoomUrl(roomUrl);
+    function captureNotification(data: Record<string, unknown> | undefined) {
+      if (data && (typeof data.roomUrl === "string" || data.kind)) setPendingNotification(data);
     }
 
     Notifications.getLastNotificationResponseAsync().then((response) => {
-      captureRoomUrl(response?.notification.request.content.data);
+      captureNotification(response?.notification.request.content.data);
     });
 
     const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
-      captureRoomUrl(response.notification.request.content.data);
+      captureNotification(response.notification.request.content.data);
     });
 
     return () => subscription.remove();
@@ -146,13 +144,27 @@ function AuthGate() {
   // Runs after the redirect effect above in the same commit, so on the
   // render where loading first flips to false, this navigation lands after
   // (and overrides) that effect's default route(family)/dashboard replace —
-  // otherwise a cold-start notification tap would land on Dashboard instead
-  // of the call it was meant to open.
+  // otherwise a cold-start notification tap would land on Dashboard/Home
+  // instead of the call/photo it was meant to open.
   useEffect(() => {
-    if (loading || !pendingRoomUrl || profile?.role !== "family") return;
-    router.push({ pathname: "/(family)/call", params: { roomUrl: pendingRoomUrl } });
-    setPendingRoomUrl(null);
-  }, [loading, pendingRoomUrl, profile]);
+    if (loading || !pendingNotification || !profile) return;
+    const { roomUrl, callerLabel, kind } = pendingNotification as {
+      roomUrl?: string;
+      callerLabel?: string;
+      kind?: string;
+    };
+
+    if (profile.role === "family" && typeof roomUrl === "string") {
+      router.push({ pathname: "/(family)/call", params: { roomUrl } });
+    } else if (profile.role === "senior" && kind === "incoming_call" && typeof roomUrl === "string") {
+      router.push({ pathname: "/(senior)/incoming-call", params: { roomUrl, callerLabel: callerLabel ?? "" } });
+    } else if (profile.role === "senior" && kind === "photo") {
+      router.push("/(senior)/photos");
+    } else {
+      return; // Not a shape we recognize for this role — leave it pending.
+    }
+    setPendingNotification(null);
+  }, [loading, pendingNotification, profile]);
 
   if (loading) {
     return (

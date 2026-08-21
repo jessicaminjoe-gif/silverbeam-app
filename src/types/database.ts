@@ -83,6 +83,16 @@ export interface CompanionSettings {
   updated_at: string;
 }
 
+export interface SharedMedia {
+  id: string;
+  senior_id: string;
+  sender_id: string;
+  storage_path: string;
+  caption: string | null;
+  viewed_at: string | null;
+  created_at: string;
+}
+
 export interface PushToken {
   id: string;
   profile_id: string;
@@ -145,6 +155,12 @@ export interface Database {
         Row: CompanionSettings;
         Insert: Partial<CompanionSettings> & { senior_id: string };
         Update: Partial<CompanionSettings>;
+        Relationships: [];
+      };
+      shared_media: {
+        Row: SharedMedia;
+        Insert: Partial<SharedMedia> & { senior_id: string; sender_id: string; storage_path: string };
+        Update: Partial<SharedMedia>;
         Relationships: [];
       };
     };

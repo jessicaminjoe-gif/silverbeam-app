@@ -21,6 +21,8 @@ export default function SeniorLayout() {
       <Stack.Screen name="checkin" options={{ title: "Check In" }} />
       <Stack.Screen name="call-picker" options={{ title: "Let's Connect" }} />
       <Stack.Screen name="call" options={{ title: "Video Call" }} />
+      <Stack.Screen name="incoming-call" options={{ title: "Incoming Call", headerShown: false }} />
+      <Stack.Screen name="photos" options={{ title: "Photos from Family" }} />
     </Stack>
   );
 }

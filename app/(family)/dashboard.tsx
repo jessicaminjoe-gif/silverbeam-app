@@ -1,10 +1,12 @@
 import { useCallback, useState } from "react";
-import { View, Text, FlatList, StyleSheet, ActivityIndicator, Pressable, RefreshControl } from "react-native";
+import { View, Text, FlatList, StyleSheet, ActivityIndicator, Pressable, RefreshControl, Alert } from "react-native";
 import { router } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
+import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
 import { useActiveSenior } from "@/hooks/useActiveSenior";
 import { SeniorSwitcher } from "@/components/SeniorSwitcher";
+import { pickAndSharePhoto } from "@/lib/uploadPhoto";
 import { colors } from "@/theme/colors";
 import type { CheckIn, EscalationEvent } from "@/types/database";
 
@@ -21,6 +23,20 @@ export default function DashboardScreen() {
   const [activeEscalations, setActiveEscalations] = useState<EscalationEvent[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [sendingPhoto, setSendingPhoto] = useState(false);
+
+  async function handleSendPhoto() {
+    if (!activeSenior) return;
+    setSendingPhoto(true);
+    try {
+      const sent = await pickAndSharePhoto(activeSenior.seniorId);
+      if (sent) Alert.alert("Sent!", `${activeSenior.fullName} will be notified.`);
+    } catch {
+      Alert.alert("Couldn't send photo", "Please try again.");
+    } finally {
+      setSendingPhoto(false);
+    }
+  }
 
   const load = useCallback(async () => {
     if (!activeSenior) return;
@@ -85,6 +101,33 @@ export default function DashboardScreen() {
       ListHeaderComponent={
         <View style={{ gap: 12 }}>
           <SeniorSwitcher activeSenior={activeSenior} seniors={seniors} onSwitch={setActiveSeniorId} />
+
+          <View style={styles.actionRow}>
+            <Pressable
+              style={styles.actionButton}
+              onPress={() => router.push({ pathname: "/(family)/call-outbound", params: { seniorId: activeSenior.seniorId } })}
+              accessibilityRole="button"
+              accessibilityLabel={`Video call ${activeSenior.fullName}`}
+            >
+              <Ionicons name="videocam" size={22} color={colors.white} />
+              <Text style={styles.actionButtonText}>Video Call</Text>
+            </Pressable>
+            <Pressable
+              style={styles.actionButton}
+              onPress={handleSendPhoto}
+              disabled={sendingPhoto}
+              accessibilityRole="button"
+              accessibilityLabel={`Send a photo to ${activeSenior.fullName}`}
+            >
+              {sendingPhoto ? (
+                <ActivityIndicator color={colors.white} size="small" />
+              ) : (
+                <Ionicons name="image" size={22} color={colors.white} />
+              )}
+              <Text style={styles.actionButtonText}>Send Photo</Text>
+            </Pressable>
+          </View>
+
           {activeEscalations.map((e) => (
             <Pressable
               key={e.id}
@@ -116,6 +159,19 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, backgroundColor: colors.cream },
   list: { padding: 16, gap: 10, backgroundColor: colors.cream },
   emptyText: { fontSize: 16, textAlign: "center", color: colors.textMuted },
+  actionRow: { flexDirection: "row", gap: 10 },
+  actionButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: colors.terracotta,
+    borderRadius: 10,
+    paddingVertical: 12,
+    minHeight: 48,
+  },
+  actionButtonText: { color: colors.white, fontSize: 15, fontWeight: "700" },
   checkInRow: {
     flexDirection: "row",
     gap: 12,

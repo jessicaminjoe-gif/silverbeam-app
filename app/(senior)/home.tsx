@@ -1,7 +1,8 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
+  Image,
   TextInput,
   Pressable,
   FlatList,
@@ -14,9 +15,12 @@ import {
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { supabase } from "@/lib/supabase";
+import { speak } from "@/lib/speech";
 import { useCompanionChat } from "@/hooks/useCompanionChat";
 import { useCompanionSettings } from "@/hooks/useCompanionSettings";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
+import { useSharedMedia } from "@/hooks/useSharedMedia";
 import { useSession } from "@/state/useSession";
 import { colors } from "@/theme/colors";
 
@@ -26,10 +30,39 @@ export default function SeniorHomeScreen() {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const { messages, sendMessage, sending, loadingHistory, replay } = useCompanionChat(soundEnabled);
   const { settings } = useCompanionSettings(profile?.id);
+  const { unreadCount: unreadPhotoCount, reload: reloadPhotos } = useSharedMedia(profile?.id);
   const voice = useVoiceInput();
   const [input, setInput] = useState("");
   const listRef = useRef<FlatList>(null);
   const seniorDisplayName = settings.senior_nickname || profile?.full_name || "there";
+
+  // Announces new photos the moment they arrive while the app is open
+  // (the push notification covers the app-closed case) — reads the
+  // sender's relationship the same way the push notification's title does.
+  useEffect(() => {
+    if (!profile?.id) return;
+    const channel = supabase
+      .channel(`shared_media:${profile.id}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "shared_media", filter: `senior_id=eq.${profile.id}` },
+        async (payload) => {
+          reloadPhotos();
+          const senderId = (payload.new as { sender_id: string }).sender_id;
+          const { data: link } = await supabase
+            .from("senior_family_links")
+            .select("relationship")
+            .eq("senior_id", profile.id)
+            .eq("family_member_id", senderId)
+            .maybeSingle();
+          speak(`${link?.relationship || "Family"} sent you new photos!`);
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [profile?.id, reloadPhotos]);
 
   async function handleSend() {
     const text = input.trim();
@@ -66,10 +99,15 @@ export default function SeniorHomeScreen() {
     >
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <View style={styles.titleRow}>
-          <Text style={styles.title}>
-            <Text style={styles.titleSilver}>Silver</Text>
-            <Text style={styles.titleBeam}>Beam</Text>
-          </Text>
+          <Pressable
+            onPress={() => router.push("/(senior)/photos")}
+            accessibilityRole="button"
+            accessibilityLabel={unreadPhotoCount > 0 ? `Photos from family, ${unreadPhotoCount} new` : "Photos from family"}
+          >
+            {/* eslint-disable-next-line @typescript-eslint/no-require-imports */}
+            <Image source={require("../../assets/icon.png")} style={styles.logoIcon} />
+            {unreadPhotoCount > 0 && <View style={styles.logoBadge} />}
+          </Pressable>
           <Pressable
             onPress={() => setSoundEnabled((prev) => !prev)}
             accessibilityRole="button"
@@ -180,9 +218,18 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   titleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  title: { fontSize: 28, fontWeight: "700" },
-  titleSilver: { color: colors.navy },
-  titleBeam: { color: colors.terracotta },
+  logoIcon: { width: 44, height: 44, borderRadius: 10 },
+  logoBadge: {
+    position: "absolute",
+    top: -2,
+    right: -2,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: colors.danger,
+    borderWidth: 2,
+    borderColor: colors.cream,
+  },
   callButton: {
     backgroundColor: colors.terracotta,
     borderRadius: 12,
