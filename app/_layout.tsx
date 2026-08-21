@@ -1,13 +1,30 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Platform, View } from "react-native";
+import { ActivityIndicator, Image, Platform, StyleSheet, Text, View } from "react-native";
 import { Slot, useRouter, useSegments } from "expo-router";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import * as Notifications from "expo-notifications";
+import * as SplashScreen from "expo-splash-screen";
 import { supabase } from "@/lib/supabase";
 import { useSession } from "@/state/useSession";
 import { useRegisterPushToken } from "@/hooks/useRegisterPushToken";
 import { colors } from "@/theme/colors";
 import type { Profile } from "@/types/database";
+
+// The native splash screen (app.config.ts's `splash`) auto-hides as soon as
+// the JS bundle is ready, which on a fast device can be well under a
+// second — reads as a flash, not a real branded moment. Holding it open
+// here and replacing it with an identical-looking in-JS screen (below)
+// that stays up for a guaranteed minimum lets us add the tagline text a
+// static native splash image can't carry, and control exactly how long it
+// shows regardless of load speed.
+SplashScreen.preventAutoHideAsync().catch(() => {});
+
+const MIN_SPLASH_MS = 3000;
+
+// expo export --platform web doesn't resolve local require()'d image
+// sources correctly in the static bundle — see (auth)/login.tsx for the
+// same workaround.
+const logoSource = Platform.OS === "web" ? { uri: "/brand-icon.png" } : require("../assets/icon.png");
 
 // Without an explicit handler, expo-notifications doesn't show anything
 // while the app is in the foreground — pushes only appeared if the app was
@@ -53,6 +70,13 @@ function AuthGate() {
   const router = useRouter();
   useRegisterPushToken(profile?.id);
   const [pendingNotification, setPendingNotification] = useState<Record<string, unknown> | null>(null);
+  const [splashElapsed, setSplashElapsed] = useState(false);
+
+  useEffect(() => {
+    SplashScreen.hideAsync().catch(() => {});
+    const timer = setTimeout(() => setSplashElapsed(true), MIN_SPLASH_MS);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Handles both a tap while the app is backgrounded/foregrounded and a
   // cold start from a tap (the app wasn't running at all when the
@@ -166,13 +190,56 @@ function AuthGate() {
     setPendingNotification(null);
   }, [loading, pendingNotification, profile]);
 
+  // Slot's mount timing relative to `loading` is deliberately unchanged
+  // from before this splash feature existed (Slot doesn't exist at all
+  // until loading is false) — that's the timing every other early-navigate
+  // fix in this file (see the notification-handling effects above) was
+  // already built and tested against. Rendering Slot unconditionally from
+  // the very first pass instead — so the splash could sit on top of it as
+  // a simple overlay — triggered "Attempted to navigate before mounting
+  // the Root Layout" on every load, so that approach was reverted. Once
+  // loading is false, Slot mounts exactly as it always did; the splash's
+  // extra hold (past loading, until MIN_SPLASH_MS) sits on top of it here
+  // as a plain overlay instead, which is safe since Slot/Navigation is
+  // already fully mounted and ready by that point.
   if (loading) {
     return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.cream }}>
-        <ActivityIndicator size="large" color={colors.terracotta} />
+      <View style={splashStyles.container}>
+        <Image source={logoSource} style={splashStyles.logo} accessibilityLabel="SilverBeam" />
+        <Text style={splashStyles.title}>
+          <Text style={splashStyles.titleSilver}>Silver</Text>
+          <Text style={splashStyles.titleBeam}>Beam</Text>
+        </Text>
+        <Text style={splashStyles.tagline}>Staying close, made simple.</Text>
+        <ActivityIndicator style={splashStyles.spinner} size="small" color={colors.terracotta} />
       </View>
     );
   }
 
-  return <Slot />;
+  return (
+    <View style={{ flex: 1 }}>
+      <Slot />
+      {!splashElapsed && (
+        <View style={[splashStyles.container, StyleSheet.absoluteFillObject]}>
+          <Image source={logoSource} style={splashStyles.logo} accessibilityLabel="SilverBeam" />
+          <Text style={splashStyles.title}>
+            <Text style={splashStyles.titleSilver}>Silver</Text>
+            <Text style={splashStyles.titleBeam}>Beam</Text>
+          </Text>
+          <Text style={splashStyles.tagline}>Staying close, made simple.</Text>
+          <ActivityIndicator style={splashStyles.spinner} size="small" color={colors.terracotta} />
+        </View>
+      )}
+    </View>
+  );
 }
+
+const splashStyles = StyleSheet.create({
+  container: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.cream },
+  logo: { width: 96, height: 96, marginBottom: 12 },
+  title: { fontSize: 34, fontWeight: "700" },
+  titleSilver: { color: colors.navy },
+  titleBeam: { color: colors.terracotta },
+  tagline: { fontSize: 16, color: colors.textMuted, marginTop: 6 },
+  spinner: { marginTop: 32 },
+});

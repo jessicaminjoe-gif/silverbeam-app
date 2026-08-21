@@ -14,8 +14,8 @@ const CALL_ENDED_SCHEME = "silverbeam://call-ended";
 const ACCESSIBLE_CONTROLS_CSS = `
 (function() {
   var style = document.createElement('style');
-  style.innerHTML = '[aria-label*="Leave" i] { transform: scale(1.5); } ' +
-    '[aria-label*="Leave" i] svg { width: 32px !important; height: 32px !important; }';
+  style.innerHTML = '[aria-label*="Leave" i] { transform: scale(1.8); } ' +
+    '[aria-label*="Leave" i] svg { width: 40px !important; height: 40px !important; }';
   document.head.appendChild(style);
 })();
 true;

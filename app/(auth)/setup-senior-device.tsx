@@ -19,7 +19,9 @@ import type { Profile } from "@/types/database";
 // unchanged — Supabase just flips auth.users.is_anonymous to false once
 // confirmed.
 export default function SetupSeniorDeviceScreen() {
+  const [mode, setMode] = useState<"new" | "reconnect">("new");
   const [fullName, setFullName] = useState("");
+  const [existingId, setExistingId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [createdProfile, setCreatedProfile] = useState<Profile | null>(null);
@@ -58,6 +60,37 @@ export default function SetupSeniorDeviceScreen() {
     setCreatedProfile(profile as Profile);
   }
 
+  // Reconnects this device to an already-existing senior account (e.g.
+  // after a reinstall) instead of creating a new, unlinked one — the id is
+  // visible to any linked family member in Settings.
+  async function handleReconnect() {
+    setError(null);
+    const id = existingId.trim();
+    if (!id) {
+      setError("Please enter the senior ID from Family Settings.");
+      return;
+    }
+    setSubmitting(true);
+    const { data, error: signInError } = await supabase.auth.signInAnonymously();
+    if (signInError || !data.user) {
+      setSubmitting(false);
+      setError(signInError?.message ?? "Could not set up this device.");
+      return;
+    }
+
+    const { data: result, error: claimError } = await supabase.functions.invoke<{ profile: Profile }>(
+      "claim-senior-device",
+      { body: { oldSeniorId: id } }
+    );
+    setSubmitting(false);
+    if (claimError || !result?.profile) {
+      setError("Couldn't find a senior account with that ID. Double-check it and try again.");
+      return;
+    }
+    useSession.getState().setProfile(result.profile);
+    router.replace("/(senior)/home");
+  }
+
   function handleDone() {
     if (!createdProfile) return;
     useSession.getState().setProfile(createdProfile);
@@ -83,25 +116,59 @@ export default function SetupSeniorDeviceScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Set Up This Device</Text>
+      <Text style={styles.title}>{mode === "new" ? "Set Up This Device" : "Reconnect This Device"}</Text>
       <Text style={styles.subtitle}>
-        For a family member to fill out, in person, on the senior's own tablet or phone. No email or password
-        needed for them.
+        {mode === "new"
+          ? "For a family member to fill out, in person, on the senior's own tablet or phone. No email or password needed for them."
+          : "If this senior already has an account (e.g. the app was reinstalled), enter their ID from Family Settings to reconnect instead of starting over."}
       </Text>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Senior's full name"
-        placeholderTextColor={colors.textMuted}
-        value={fullName}
-        onChangeText={setFullName}
-        accessibilityLabel="Senior's full name"
-      />
+      {mode === "new" ? (
+        <TextInput
+          style={styles.input}
+          placeholder="Senior's full name"
+          placeholderTextColor={colors.textMuted}
+          value={fullName}
+          onChangeText={setFullName}
+          accessibilityLabel="Senior's full name"
+        />
+      ) : (
+        <TextInput
+          style={styles.input}
+          placeholder="Senior ID"
+          placeholderTextColor={colors.textMuted}
+          autoCapitalize="none"
+          value={existingId}
+          onChangeText={setExistingId}
+          accessibilityLabel="Senior ID"
+        />
+      )}
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <Pressable style={styles.button} onPress={handleSetup} disabled={submitting} accessibilityRole="button">
-        {submitting ? <ActivityIndicator color={colors.white} /> : <Text style={styles.buttonText}>Set Up This Device</Text>}
+      <Pressable
+        style={styles.button}
+        onPress={mode === "new" ? handleSetup : handleReconnect}
+        disabled={submitting}
+        accessibilityRole="button"
+      >
+        {submitting ? (
+          <ActivityIndicator color={colors.white} />
+        ) : (
+          <Text style={styles.buttonText}>{mode === "new" ? "Set Up This Device" : "Reconnect"}</Text>
+        )}
+      </Pressable>
+
+      <Pressable
+        onPress={() => {
+          setError(null);
+          setMode(mode === "new" ? "reconnect" : "new");
+        }}
+        accessibilityRole="button"
+      >
+        <Text style={styles.link}>
+          {mode === "new" ? "Already have a senior ID? Reconnect instead" : "Setting up for the first time instead?"}
+        </Text>
       </Pressable>
     </View>
   );
@@ -123,6 +190,7 @@ const styles = StyleSheet.create({
   button: { backgroundColor: colors.terracotta, borderRadius: 8, padding: 16, alignItems: "center", marginTop: 8 },
   buttonText: { color: colors.white, fontSize: 18, fontWeight: "600" },
   error: { color: colors.danger, textAlign: "center" },
+  link: { textAlign: "center", marginTop: 16, color: colors.terracotta },
   idText: {
     fontSize: 16,
     fontFamily: "monospace",

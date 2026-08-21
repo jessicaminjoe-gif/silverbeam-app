@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { View, Text, Pressable, StyleSheet } from "react-native";
+import { View, Text, Pressable, StyleSheet, ActivityIndicator } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { speak } from "@/lib/speech";
+import { speak, type SpeakResult } from "@/lib/speech";
 import { colors } from "@/theme/colors";
 import { CallWebView } from "@/components/CallWebView";
+
+const MAX_ANNOUNCEMENT_WAIT_MS = 1500;
 
 // A family-initiated call is unexpected from the senior's side (unlike
 // calling out themselves), so this asks before video goes live — a moment
@@ -13,15 +15,31 @@ import { CallWebView } from "@/components/CallWebView";
 export default function IncomingCallScreen() {
   const { roomUrl, callerLabel } = useLocalSearchParams<{ roomUrl: string; callerLabel?: string }>();
   const [answered, setAnswered] = useState(false);
+  const [answering, setAnswering] = useState(false);
   const [callEnded, setCallEnded] = useState(false);
   const announced = useRef(false);
+  const announcementPromise = useRef<Promise<SpeakResult> | null>(null);
   const label = callerLabel || "Someone";
 
   useEffect(() => {
     if (announced.current) return;
     announced.current = true;
-    speak(`${label} is calling...`);
+    announcementPromise.current = speak(`${label} is calling...`);
   }, [label]);
+
+  // The "who's calling" announcement is TTS over the network — it takes a
+  // real moment to generate, and tapping Answer immediately (the natural
+  // reaction to seeing "Incoming call") could otherwise connect the call
+  // before that audio has even started, making it sound like it announces
+  // *after* answering. Give it a brief, capped head start instead.
+  async function handleAnswer() {
+    setAnswering(true);
+    await Promise.race([
+      announcementPromise.current,
+      new Promise((resolve) => setTimeout(resolve, MAX_ANNOUNCEMENT_WAIT_MS)),
+    ]);
+    setAnswered(true);
+  }
 
   if (callEnded) {
     return (
@@ -50,6 +68,7 @@ export default function IncomingCallScreen() {
         <Pressable
           style={[styles.actionButton, styles.declineButton]}
           onPress={() => router.replace("/(senior)/home")}
+          disabled={answering}
           accessibilityRole="button"
           accessibilityLabel="Not now"
         >
@@ -58,11 +77,16 @@ export default function IncomingCallScreen() {
         </Pressable>
         <Pressable
           style={[styles.actionButton, styles.answerButton]}
-          onPress={() => setAnswered(true)}
+          onPress={handleAnswer}
+          disabled={answering}
           accessibilityRole="button"
           accessibilityLabel={`Answer call from ${label}`}
         >
-          <Ionicons name="videocam" size={32} color={colors.white} />
+          {answering ? (
+            <ActivityIndicator color={colors.white} />
+          ) : (
+            <Ionicons name="videocam" size={32} color={colors.white} />
+          )}
           <Text style={styles.actionButtonText}>Answer</Text>
         </Pressable>
       </View>

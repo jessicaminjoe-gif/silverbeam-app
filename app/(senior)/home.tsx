@@ -109,6 +109,18 @@ export default function SeniorHomeScreen() {
             {unreadPhotoCount > 0 && <View style={styles.logoBadge} />}
           </Pressable>
           <Pressable
+            style={styles.callButton}
+            onPress={() => router.push("/(senior)/call-picker")}
+            accessibilityRole="button"
+            accessibilityLabel="Let's Connect. Tap to video call."
+          >
+            <Ionicons name="videocam" size={28} color={colors.white} />
+            <View>
+              <Text style={styles.callButtonText}>Let's Connect</Text>
+              <Text style={styles.callButtonSubtext}>Tap to video call</Text>
+            </View>
+          </Pressable>
+          <Pressable
             onPress={() => setSoundEnabled((prev) => !prev)}
             accessibilityRole="button"
             accessibilityLabel={soundEnabled ? "Turn off spoken replies" : "Turn on spoken replies"}
@@ -117,18 +129,6 @@ export default function SeniorHomeScreen() {
             <Ionicons name={soundEnabled ? "volume-high" : "volume-mute"} size={28} color={colors.navy} />
           </Pressable>
         </View>
-        <Pressable
-          style={styles.callButton}
-          onPress={() => router.push("/(senior)/call-picker")}
-          accessibilityRole="button"
-          accessibilityLabel="Let's Connect. Tap to video call."
-        >
-          <Ionicons name="videocam" size={30} color={colors.white} />
-          <View>
-            <Text style={styles.callButtonText}>Let's Connect</Text>
-            <Text style={styles.callButtonSubtext}>Tap to video call</Text>
-          </View>
-        </Pressable>
       </View>
 
       {loadingHistory ? (
@@ -217,8 +217,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.cream,
     gap: 12,
   },
-  titleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  logoIcon: { width: 44, height: 44, borderRadius: 10 },
+  titleRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  logoIcon: { width: 60, height: 60, borderRadius: 14 },
   logoBadge: {
     position: "absolute",
     top: -2,
@@ -231,14 +231,15 @@ const styles = StyleSheet.create({
     borderColor: colors.cream,
   },
   callButton: {
+    flex: 1,
     backgroundColor: colors.terracotta,
     borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 14,
+    gap: 10,
     minHeight: 60,
   },
   callButtonText: { color: colors.white, fontSize: 20, fontWeight: "700" },
