@@ -27,8 +27,14 @@ export default function FamilyLayout() {
       />
       {/* Reachable via router.push, intentionally hidden from the tab bar */}
       <Tabs.Screen name="escalation-detail" options={{ href: null, title: "Alert" }} />
-      <Tabs.Screen name="call" options={{ href: null, title: "Video Call" }} />
-      <Tabs.Screen name="call-outbound" options={{ href: null, title: "Video Call" }} />
+      {/* unmountOnBlur: a tab screen normally stays mounted (and keeps its
+          state) even after you navigate away — fine for Dashboard/History,
+          but these two create/join a specific call and need a truly fresh
+          start every time, not the previous call's now-dead room still
+          sitting in state. Without this, calling the same senior twice in
+          a row silently reused the first call's (expired) room. */}
+      <Tabs.Screen name="call" options={{ href: null, title: "Video Call", unmountOnBlur: true }} />
+      <Tabs.Screen name="call-outbound" options={{ href: null, title: "Video Call", unmountOnBlur: true }} />
     </Tabs>
   );
 }
