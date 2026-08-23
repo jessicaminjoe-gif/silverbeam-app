@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
 import { supabase } from "@/lib/supabase";
 import { useSession } from "@/state/useSession";
 
@@ -58,9 +59,20 @@ export function useLinkedSeniors() {
     setLoading(false);
   }, [profile?.id]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  // A senior's id can change entirely from underneath a family member's
+  // already-open app -- claim-senior-device (the "reconnect this device"
+  // flow) migrates a senior's data to a fresh id and deletes the old
+  // profile, with no way for a family app that was open before that
+  // happened to know. A plain mount-only fetch would keep every
+  // call/photo/etc. action pointed at the now-deleted old id until the
+  // app was fully restarted. Refetching on every tab focus (same pattern
+  // Dashboard/History already use for their own data) catches this within
+  // one tab switch instead.
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
 
   return { seniors, primarySenior: seniors[0] ?? null, loading, reload: load };
 }
