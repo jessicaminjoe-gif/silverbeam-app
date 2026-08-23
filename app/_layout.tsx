@@ -78,6 +78,47 @@ function AuthGate() {
     return () => clearTimeout(timer);
   }, []);
 
+  // The branded splash is a nice-to-have on a normal launch, but it must
+  // never sit on top of and hide something the user opened the app *for* —
+  // a cold start from tapping a notification can finish loading and
+  // correctly navigate to e.g. the incoming-call screen well within the
+  // 3s hold, leaving that screen fully rendered but invisible underneath
+  // an opaque splash for the remainder. Dismiss immediately the moment we
+  // know a notification launched the app, whether that's captured before
+  // or after the timer would have elapsed on its own.
+  useEffect(() => {
+    if (pendingNotification) setSplashElapsed(true);
+  }, [pendingNotification]);
+
+  // Auto-navigates straight to the incoming-call screen the instant a
+  // family member starts a call, via Realtime -- doesn't depend on the
+  // senior noticing/tapping a push notification at all, which is both more
+  // reliable and matches "would prefer a pop up... easier for the senior
+  // to answer it." Only covers the app-already-open case (Realtime needs
+  // an active connection); a fully closed app still relies on the push.
+  useEffect(() => {
+    if (!profile || profile.role !== "senior") return;
+    const channel = supabase
+      .channel(`incoming-calls:${profile.id}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "call_events", filter: `senior_id=eq.${profile.id}` },
+        (payload) => {
+          const row = payload.new as { initiated_by: string; target_room_url: string | null; caller_label: string | null };
+          if (row.initiated_by !== "family" || !row.target_room_url) return;
+          setSplashElapsed(true);
+          router.push({
+            pathname: "/(senior)/incoming-call",
+            params: { roomUrl: row.target_room_url, callerLabel: row.caller_label ?? "" },
+          });
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [profile]);
+
   // Handles both a tap while the app is backgrounded/foregrounded and a
   // cold start from a tap (the app wasn't running at all when the
   // notification came in). Native only — expo-notifications' response APIs

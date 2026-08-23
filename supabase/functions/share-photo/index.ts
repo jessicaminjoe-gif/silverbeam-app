@@ -89,7 +89,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { error: insertError } = await userClient
+    // service role, not userClient: there's no client-facing INSERT policy
+    // on shared_media (family only has select/the senior only has update-
+    // for-viewed — see migration 0009), same pattern as escalation_events.
+    const { error: insertError } = await serviceClient
       .from("shared_media")
       .insert({ senior_id: seniorId, sender_id: user.id, storage_path: storagePath, caption: caption ?? null });
     if (insertError) {

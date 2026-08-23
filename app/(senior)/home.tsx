@@ -24,6 +24,12 @@ import { useSharedMedia } from "@/hooks/useSharedMedia";
 import { useSession } from "@/state/useSession";
 import { colors } from "@/theme/colors";
 
+// expo export --platform web doesn't resolve local require()'d image
+// sources correctly in the static bundle — see (auth)/login.tsx for the
+// same workaround (this screen is native-only in practice, but matching
+// the proven pattern removes any doubt).
+const logoSource = Platform.OS === "web" ? { uri: "/brand-icon.png" } : require("../../assets/icon.png");
+
 export default function SeniorHomeScreen() {
   const insets = useSafeAreaInsets();
   const profile = useSession((s) => s.profile);
@@ -104,8 +110,7 @@ export default function SeniorHomeScreen() {
             accessibilityRole="button"
             accessibilityLabel={unreadPhotoCount > 0 ? `Photos from family, ${unreadPhotoCount} new` : "Photos from family"}
           >
-            {/* eslint-disable-next-line @typescript-eslint/no-require-imports */}
-            <Image source={require("../../assets/icon.png")} style={styles.logoIcon} />
+            <Image source={logoSource} style={styles.logoIcon} />
             {unreadPhotoCount > 0 && <View style={styles.logoBadge} />}
           </Pressable>
           <Pressable
@@ -121,6 +126,7 @@ export default function SeniorHomeScreen() {
             </View>
           </Pressable>
           <Pressable
+            style={styles.soundButton}
             onPress={() => setSoundEnabled((prev) => !prev)}
             accessibilityRole="button"
             accessibilityLabel={soundEnabled ? "Turn off spoken replies" : "Turn on spoken replies"}
@@ -219,6 +225,7 @@ const styles = StyleSheet.create({
   },
   titleRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   logoIcon: { width: 60, height: 60, borderRadius: 14 },
+  soundButton: { width: 60, alignItems: "center" },
   logoBadge: {
     position: "absolute",
     top: -2,

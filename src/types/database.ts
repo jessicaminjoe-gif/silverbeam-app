@@ -72,6 +72,9 @@ export interface CallEvent {
   room_name: string;
   started_at: string;
   target_family_member_id: string | null;
+  initiated_by: "senior" | "family";
+  target_room_url: string | null;
+  caller_label: string | null;
 }
 
 export interface CompanionSettings {

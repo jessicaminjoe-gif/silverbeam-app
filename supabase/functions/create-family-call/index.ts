@@ -185,11 +185,17 @@ Deno.serve(async (req) => {
     const familyRoomUrl = familyToken ? `${room.url}?t=${familyToken}` : room.url;
     const seniorRoomUrl = seniorToken ? `${room.url}?t=${seniorToken}` : room.url;
 
-    await serviceClient
-      .from("call_events")
-      .insert({ senior_id: seniorId, room_name: room.name, target_family_member_id: user.id });
-
     const callerLabel = link.relationship || profile.full_name;
+
+    await serviceClient.from("call_events").insert({
+      senior_id: seniorId,
+      room_name: room.name,
+      target_family_member_id: user.id,
+      initiated_by: "family",
+      target_room_url: seniorRoomUrl,
+      caller_label: callerLabel,
+    });
+
     const { data: tokens, error: tokensError } = await serviceClient
       .from("push_tokens")
       .select("token")
