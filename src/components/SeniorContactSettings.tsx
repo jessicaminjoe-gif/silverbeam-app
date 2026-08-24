@@ -1,16 +1,23 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { View, Text, Image, Pressable, TextInput, StyleSheet, ActivityIndicator, Alert } from "react-native";
+import { View, Text, Image, Pressable, TextInput, Switch, StyleSheet, ActivityIndicator, Alert } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
 import { pickAndUploadAvatar } from "@/lib/uploadAvatar";
 import { speak } from "@/lib/speech";
 import { VOICE_OPTIONS, VOICE_PREVIEW_TEXT } from "@/lib/voiceOptions";
 import { useCompanionSettings } from "@/hooks/useCompanionSettings";
+import { useReminders } from "@/hooks/useReminders";
 import { colors } from "@/theme/colors";
 import type { LinkedSenior } from "@/hooks/useLinkedSeniors";
-import type { CheckInOption } from "@/types/database";
+import type { CheckInOption, ReminderRecurrence } from "@/types/database";
 
 const MAX_CHECK_IN_OPTIONS = 5;
+const RECURRENCE_OPTIONS: { value: ReminderRecurrence; label: string }[] = [
+  { value: "once", label: "One time" },
+  { value: "yearly", label: "Every year" },
+  { value: "daily", label: "Every day" },
+];
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 interface Props {
   senior: LinkedSenior;
@@ -19,13 +26,19 @@ interface Props {
 
 export function SeniorContactSettings({ senior, onChanged }: Props) {
   const { settings, loading: loadingSettings, reload } = useCompanionSettings(senior.seniorId);
+  const { reminders, addReminder, removeReminder } = useReminders(senior.seniorId);
   const [relationship, setRelationship] = useState(senior.relationship ?? "");
   const [nickname, setNickname] = useState(settings.senior_nickname ?? "");
   const [voiceId, setVoiceId] = useState(settings.voice_id ?? VOICE_OPTIONS[0].voiceId);
   const [checkInOptions, setCheckInOptions] = useState<CheckInOption[]>(settings.check_in_options);
+  const [locationZip, setLocationZip] = useState(settings.location_zip ?? "");
   const [savingField, setSavingField] = useState<string | null>(null);
   const [previewingVoice, setPreviewingVoice] = useState<string | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [newReminderTitle, setNewReminderTitle] = useState("");
+  const [newReminderRecurrence, setNewReminderRecurrence] = useState<ReminderRecurrence>("once");
+  const [newReminderDate, setNewReminderDate] = useState("");
+  const [addingReminder, setAddingReminder] = useState(false);
 
   // The voice IS the name -- see voiceOptions.ts. Falls back to the first
   // option's name if voiceId somehow doesn't match any (shouldn't happen
@@ -38,8 +51,9 @@ export function SeniorContactSettings({ senior, onChanged }: Props) {
       setNickname(settings.senior_nickname ?? "");
       setVoiceId(settings.voice_id ?? VOICE_OPTIONS[0].voiceId);
       setCheckInOptions(settings.check_in_options);
+      setLocationZip(settings.location_zip ?? "");
     }
-  }, [loadingSettings, settings.senior_nickname, settings.voice_id, settings.check_in_options]);
+  }, [loadingSettings, settings.senior_nickname, settings.voice_id, settings.check_in_options, settings.location_zip]);
 
   async function saveRelationship() {
     const value = relationship.trim();
@@ -56,6 +70,10 @@ export function SeniorContactSettings({ senior, onChanged }: Props) {
       senior_nickname: string | null;
       voice_id: string;
       check_in_options: CheckInOption[];
+      location_zip: string | null;
+      briefing_weather: boolean;
+      briefing_news: boolean;
+      briefing_reminders: boolean;
     }>
   ) {
     setSavingField(Object.keys(patch)[0]);
@@ -65,6 +83,10 @@ export function SeniorContactSettings({ senior, onChanged }: Props) {
       senior_nickname: nickname || null,
       voice_id: voiceId,
       check_in_options: checkInOptions,
+      location_zip: locationZip || null,
+      briefing_weather: settings.briefing_weather,
+      briefing_news: settings.briefing_news,
+      briefing_reminders: settings.briefing_reminders,
       ...patch,
     });
     setSavingField(null);
@@ -73,6 +95,29 @@ export function SeniorContactSettings({ senior, onChanged }: Props) {
       return;
     }
     reload();
+  }
+
+  async function handleAddReminder() {
+    const title = newReminderTitle.trim();
+    if (!title) return;
+    if (newReminderRecurrence !== "daily" && !DATE_PATTERN.test(newReminderDate)) {
+      Alert.alert("Add a date", "Enter the date as YYYY-MM-DD.");
+      return;
+    }
+    setAddingReminder(true);
+    const { error } = await addReminder({
+      title,
+      recurrence: newReminderRecurrence,
+      remind_on: newReminderRecurrence === "daily" ? null : newReminderDate,
+    });
+    setAddingReminder(false);
+    if (error) {
+      Alert.alert("Couldn't add reminder", "Please try again.");
+      return;
+    }
+    setNewReminderTitle("");
+    setNewReminderDate("");
+    setNewReminderRecurrence("once");
   }
 
   function updateCheckInOption(index: number, patch: Partial<CheckInOption>) {
@@ -274,12 +319,132 @@ export function SeniorContactSettings({ senior, onChanged }: Props) {
         </View>
       </Field>
 
+      <Field label="Daily greeting" hint="What the companion offers when the app opens for the first time each day">
+        <View style={{ gap: 10 }}>
+          <TextInput
+            style={styles.input}
+            value={locationZip}
+            onChangeText={setLocationZip}
+            onBlur={() => saveCompanionSettings({ location_zip: locationZip || null })}
+            placeholder="ZIP code for weather"
+            keyboardType="number-pad"
+            maxLength={5}
+            accessibilityLabel="ZIP code for weather"
+          />
+          <ToggleRow
+            label="Weather"
+            value={settings.briefing_weather}
+            onChange={(value) => saveCompanionSettings({ briefing_weather: value })}
+          />
+          <ToggleRow
+            label="News headlines"
+            value={settings.briefing_news}
+            onChange={(value) => saveCompanionSettings({ briefing_news: value })}
+          />
+          <ToggleRow
+            label="Reminders"
+            value={settings.briefing_reminders}
+            onChange={(value) => saveCompanionSettings({ briefing_reminders: value })}
+          />
+        </View>
+      </Field>
+
+      <Field label="Reminders" hint="Birthdays, anniversaries, medications -- anything worth a nudge">
+        <View style={{ gap: 10 }}>
+          {reminders.map((reminder) => (
+            <View key={reminder.id} style={styles.reminderRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.reminderTitle}>{reminder.title}</Text>
+                <Text style={styles.reminderMeta}>
+                  {reminder.recurrence === "daily"
+                    ? "Every day"
+                    : reminder.recurrence === "yearly"
+                      ? `Every year · ${reminder.remind_on}`
+                      : reminder.remind_on ?? ""}
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => removeReminder(reminder.id)}
+                accessibilityRole="button"
+                accessibilityLabel={`Remove reminder ${reminder.title}`}
+                hitSlop={8}
+              >
+                <Ionicons name="close-circle-outline" size={22} color={colors.textMuted} />
+              </Pressable>
+            </View>
+          ))}
+
+          <View style={styles.addReminderForm}>
+            <TextInput
+              style={styles.input}
+              value={newReminderTitle}
+              onChangeText={setNewReminderTitle}
+              placeholder="e.g. Take blood pressure medicine"
+              accessibilityLabel="New reminder title"
+            />
+            <View style={styles.recurrenceRow}>
+              {RECURRENCE_OPTIONS.map((opt) => (
+                <Pressable
+                  key={opt.value}
+                  style={[styles.recurrenceOption, newReminderRecurrence === opt.value && styles.recurrenceOptionSelected]}
+                  onPress={() => setNewReminderRecurrence(opt.value)}
+                  accessibilityRole="button"
+                  accessibilityLabel={opt.label}
+                >
+                  <Text style={[styles.recurrenceText, newReminderRecurrence === opt.value && styles.recurrenceTextSelected]}>
+                    {opt.label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+            {newReminderRecurrence !== "daily" && (
+              <TextInput
+                style={styles.input}
+                value={newReminderDate}
+                onChangeText={setNewReminderDate}
+                placeholder="YYYY-MM-DD"
+                maxLength={10}
+                accessibilityLabel="Reminder date"
+              />
+            )}
+            <Pressable
+              style={styles.addReminderButton}
+              onPress={handleAddReminder}
+              disabled={addingReminder || !newReminderTitle.trim()}
+              accessibilityRole="button"
+              accessibilityLabel="Add reminder"
+            >
+              {addingReminder ? (
+                <ActivityIndicator size="small" color={colors.white} />
+              ) : (
+                <Text style={styles.addReminderButtonText}>Add reminder</Text>
+              )}
+            </Pressable>
+          </View>
+        </View>
+      </Field>
+
       {savingField && (
         <View style={styles.savingRow}>
           <ActivityIndicator size="small" color={colors.terracotta} />
           <Text style={styles.savingText}>Saving...</Text>
         </View>
       )}
+    </View>
+  );
+}
+
+function ToggleRow({ label, value, onChange }: { label: string; value: boolean; onChange: (value: boolean) => void }) {
+  return (
+    <View style={styles.toggleRow}>
+      <Text style={styles.toggleLabel}>{label}</Text>
+      <Switch
+        value={value}
+        onValueChange={onChange}
+        trackColor={{ false: colors.border, true: colors.sage }}
+        thumbColor={colors.white}
+        accessibilityLabel={label}
+      />
     </View>
   );
 }
@@ -359,4 +524,30 @@ const styles = StyleSheet.create({
     backgroundColor: colors.cream,
   },
   addOptionText: { fontSize: 14, fontWeight: "600", color: colors.terracotta },
+  toggleRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  toggleLabel: { fontSize: 15, color: colors.text },
+  reminderRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  reminderTitle: { fontSize: 15, fontWeight: "600", color: colors.text },
+  reminderMeta: { fontSize: 12, color: colors.textMuted },
+  addReminderForm: { gap: 8, paddingTop: 4 },
+  recurrenceRow: { flexDirection: "row", gap: 8 },
+  recurrenceOption: {
+    flex: 1,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    paddingVertical: 8,
+    backgroundColor: colors.cream,
+  },
+  recurrenceOptionSelected: { backgroundColor: colors.terracotta, borderColor: colors.terracotta },
+  recurrenceText: { fontSize: 13, fontWeight: "600", color: colors.text },
+  recurrenceTextSelected: { color: colors.white },
+  addReminderButton: {
+    backgroundColor: colors.terracotta,
+    borderRadius: 8,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  addReminderButtonText: { color: colors.white, fontSize: 14, fontWeight: "700" },
 });

@@ -15,6 +15,7 @@ import {
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "@/lib/supabase";
 import { speak } from "@/lib/speech";
 import { useCompanionChat } from "@/hooks/useCompanionChat";
@@ -34,7 +35,7 @@ export default function SeniorHomeScreen() {
   const insets = useSafeAreaInsets();
   const profile = useSession((s) => s.profile);
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const { messages, sendMessage, sending, loadingHistory, replay } = useCompanionChat(soundEnabled);
+  const { messages, sendMessage, sending, loadingHistory, replay, triggerBriefing } = useCompanionChat(soundEnabled);
   const { settings } = useCompanionSettings(profile?.id);
   const { unreadCount: unreadPhotoCount, reload: reloadPhotos } = useSharedMedia(profile?.id);
   const voice = useVoiceInput();
@@ -69,6 +70,23 @@ export default function SeniorHomeScreen() {
       supabase.removeChannel(channel);
     };
   }, [profile?.id, reloadPhotos]);
+
+  // Fires the greeting + weather/news/reminders once per calendar day, the
+  // first time the senior opens the app that day -- not on every mount, so
+  // reopening the app an hour later doesn't repeat it.
+  useEffect(() => {
+    if (!profile?.id || loadingHistory) return;
+    const key = `briefing-shown-${profile.id}-${new Date().toDateString()}`;
+    let cancelled = false;
+    AsyncStorage.getItem(key).then((shown) => {
+      if (shown || cancelled) return;
+      triggerBriefing();
+      AsyncStorage.setItem(key, "1");
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [profile?.id, loadingHistory, triggerBriefing]);
 
   async function handleSend() {
     const text = input.trim();
