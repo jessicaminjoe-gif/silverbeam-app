@@ -37,6 +37,7 @@ const config: ExpoConfig = {
     "expo-router",
     "expo-dev-client",
     "expo-notifications",
+    "expo-font",
     [
       "expo-image-picker",
       { photosPermission: "SilverBeam uses your photo library to set your profile picture." },

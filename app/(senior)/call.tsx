@@ -5,6 +5,8 @@ import { supabase } from "@/lib/supabase";
 import { speak } from "@/lib/speech";
 import { colors } from "@/theme/colors";
 import { CallWebView } from "@/components/CallWebView";
+import { EndCallButton } from "@/components/EndCallButton";
+import { broadcastCallEnded, useCallEndListener } from "@/lib/callSignal";
 
 interface CreateCallResponse {
   roomUrl: string;
@@ -84,6 +86,13 @@ export default function CallScreen() {
     };
   }, [roomName]);
 
+  useCallEndListener(roomName, () => setCallEnded(true));
+
+  function handleEndCall() {
+    if (roomName) broadcastCallEnded(roomName);
+    setCallEnded(true);
+  }
+
   if (callEnded || noAnswer) {
     return (
       <View style={styles.center}>
@@ -119,7 +128,12 @@ export default function CallScreen() {
     );
   }
 
-  return <CallWebView roomUrl={roomUrl} onCallEnded={() => setCallEnded(true)} accessibleControls />;
+  return (
+    <View style={{ flex: 1 }}>
+      <CallWebView roomUrl={roomUrl} onCallEnded={handleEndCall} />
+      <EndCallButton onPress={handleEndCall} />
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({

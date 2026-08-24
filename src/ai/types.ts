@@ -23,5 +23,10 @@ export interface CompanionReply {
 export interface ChatRequestBody {
   seniorId: string;
   checkInId?: string;
-  message: string;
+  message?: string;
+  // Alternate mode: no message, no escalation check -- generates a
+  // proactive time-of-day greeting woven with weather/news/reminders
+  // (chat/index.ts's briefing branch). Response is just { message }, no
+  // escalation field.
+  briefing?: boolean;
 }

@@ -14,6 +14,10 @@ const DEFAULTS: Omit<CompanionSettings, "senior_id" | "updated_at"> = {
   senior_nickname: null,
   voice_id: null,
   check_in_options: DEFAULT_CHECK_IN_OPTIONS,
+  location_zip: null,
+  briefing_weather: true,
+  briefing_news: false,
+  briefing_reminders: true,
 };
 
 // Used by both the senior (reading their own settings) and family (reading

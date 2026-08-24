@@ -20,7 +20,6 @@ interface Props {
 export function SeniorContactSettings({ senior, onChanged }: Props) {
   const { settings, loading: loadingSettings, reload } = useCompanionSettings(senior.seniorId);
   const [relationship, setRelationship] = useState(senior.relationship ?? "");
-  const [companionName, setCompanionName] = useState(settings.companion_name);
   const [nickname, setNickname] = useState(settings.senior_nickname ?? "");
   const [voiceId, setVoiceId] = useState(settings.voice_id ?? VOICE_OPTIONS[0].voiceId);
   const [checkInOptions, setCheckInOptions] = useState<CheckInOption[]>(settings.check_in_options);
@@ -28,15 +27,19 @@ export function SeniorContactSettings({ senior, onChanged }: Props) {
   const [previewingVoice, setPreviewingVoice] = useState<string | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
+  // The voice IS the name -- see voiceOptions.ts. Falls back to the first
+  // option's name if voiceId somehow doesn't match any (shouldn't happen
+  // outside a stale/removed preset).
+  const companionName = VOICE_OPTIONS.find((o) => o.voiceId === voiceId)?.name ?? VOICE_OPTIONS[0].name;
+
   // Settings load async after mount — sync local drafts once they arrive.
   useEffect(() => {
     if (!loadingSettings) {
-      setCompanionName(settings.companion_name);
       setNickname(settings.senior_nickname ?? "");
       setVoiceId(settings.voice_id ?? VOICE_OPTIONS[0].voiceId);
       setCheckInOptions(settings.check_in_options);
     }
-  }, [loadingSettings, settings.companion_name, settings.senior_nickname, settings.voice_id, settings.check_in_options]);
+  }, [loadingSettings, settings.senior_nickname, settings.voice_id, settings.check_in_options]);
 
   async function saveRelationship() {
     const value = relationship.trim();
@@ -184,16 +187,6 @@ export function SeniorContactSettings({ senior, onChanged }: Props) {
         />
       </Field>
 
-      <Field label="Companion's name" hint="What the AI companion calls itself">
-        <TextInput
-          style={styles.input}
-          value={companionName}
-          onChangeText={setCompanionName}
-          onBlur={() => saveCompanionSettings({ companion_name: companionName || "SilverBeam" })}
-          placeholder="SilverBeam"
-        />
-      </Field>
-
       <Field label={`What it calls ${senior.fullName.split(" ")[0]}`} hint='e.g. "Grandma Sue" instead of their full name — only used in conversation'>
         <TextInput
           style={styles.input}
@@ -204,7 +197,7 @@ export function SeniorContactSettings({ senior, onChanged }: Props) {
         />
       </Field>
 
-      <Field label="Companion's voice" hint="A preference for now — spoken replies use this voice">
+      <Field label="Companion's name & voice" hint="Picking a voice names the companion -- they're paired so the voice always matches its name">
         <View style={styles.voiceGrid}>
           {VOICE_OPTIONS.map((opt) => (
             <Pressable
@@ -212,17 +205,20 @@ export function SeniorContactSettings({ senior, onChanged }: Props) {
               style={[styles.voiceOption, voiceId === opt.voiceId && styles.voiceOptionSelected]}
               onPress={() => {
                 setVoiceId(opt.voiceId);
-                saveCompanionSettings({ voice_id: opt.voiceId });
+                saveCompanionSettings({ voice_id: opt.voiceId, companion_name: opt.name });
               }}
               accessibilityRole="button"
-              accessibilityLabel={`Select voice: ${opt.label}`}
+              accessibilityLabel={`Select ${opt.name}: ${opt.label}`}
             >
-              <Text style={[styles.voiceLabel, voiceId === opt.voiceId && styles.voiceLabelSelected]}>{opt.label}</Text>
+              <View>
+                <Text style={[styles.voiceName, voiceId === opt.voiceId && styles.voiceLabelSelected]}>{opt.name}</Text>
+                <Text style={[styles.voiceLabel, voiceId === opt.voiceId && styles.voiceLabelSelected]}>{opt.label}</Text>
+              </View>
               <Pressable
                 hitSlop={8}
                 onPress={() => handlePreviewVoice(opt.voiceId)}
                 accessibilityRole="button"
-                accessibilityLabel={`Preview ${opt.label} voice`}
+                accessibilityLabel={`Preview ${opt.name}'s voice`}
               >
                 {previewingVoice === opt.voiceId ? (
                   <ActivityIndicator size="small" color={voiceId === opt.voiceId ? colors.white : colors.terracotta} />
@@ -345,7 +341,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.cream,
   },
   voiceOptionSelected: { backgroundColor: colors.terracotta, borderColor: colors.terracotta },
-  voiceLabel: { fontSize: 13, fontWeight: "600", color: colors.text },
+  voiceName: { fontSize: 15, fontWeight: "700", color: colors.navy },
+  voiceLabel: { fontSize: 12, color: colors.textMuted },
   voiceLabelSelected: { color: colors.white },
   savingRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   savingText: { fontSize: 12, color: colors.textMuted },

@@ -204,7 +204,7 @@ Deno.serve(async (req) => {
     for (const t of tokens ?? []) {
       const title = `${callerLabel} is calling`;
       const body = "Tap to answer";
-      const data = { kind: "incoming_call", roomUrl: seniorRoomUrl, callerLabel };
+      const data = { kind: "incoming_call", roomUrl: seniorRoomUrl, roomName: room.name, callerLabel };
       await sendExpoPush(t.token, title, body, data, "calls");
       if (typeof EdgeRuntime !== "undefined") {
         EdgeRuntime.waitUntil(scheduleRepeatPushes(t.token, title, body, data, "calls"));

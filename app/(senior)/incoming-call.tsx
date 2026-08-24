@@ -5,6 +5,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { speak, type SpeakResult } from "@/lib/speech";
 import { colors } from "@/theme/colors";
 import { CallWebView } from "@/components/CallWebView";
+import { EndCallButton } from "@/components/EndCallButton";
+import { broadcastCallEnded, useCallEndListener } from "@/lib/callSignal";
 
 const MAX_ANNOUNCEMENT_WAIT_MS = 1500;
 
@@ -13,7 +15,11 @@ const MAX_ANNOUNCEMENT_WAIT_MS = 1500;
 // to be ready, and a clear way to say "not now" without it feeling rude or
 // confusing about whether the call is even happening.
 export default function IncomingCallScreen() {
-  const { roomUrl, callerLabel } = useLocalSearchParams<{ roomUrl: string; callerLabel?: string }>();
+  const { roomUrl, roomName, callerLabel } = useLocalSearchParams<{
+    roomUrl: string;
+    roomName?: string;
+    callerLabel?: string;
+  }>();
   const [answered, setAnswered] = useState(false);
   const [answering, setAnswering] = useState(false);
   const [callEnded, setCallEnded] = useState(false);
@@ -41,6 +47,13 @@ export default function IncomingCallScreen() {
     setAnswered(true);
   }
 
+  useCallEndListener(roomName, () => setCallEnded(true));
+
+  function handleEndCall() {
+    if (roomName) broadcastCallEnded(roomName);
+    setCallEnded(true);
+  }
+
   if (callEnded) {
     return (
       <View style={styles.center}>
@@ -55,7 +68,12 @@ export default function IncomingCallScreen() {
   }
 
   if (answered) {
-    return <CallWebView roomUrl={roomUrl} onCallEnded={() => setCallEnded(true)} accessibleControls />;
+    return (
+      <View style={{ flex: 1 }}>
+        <CallWebView roomUrl={roomUrl} onCallEnded={handleEndCall} />
+        <EndCallButton onPress={handleEndCall} />
+      </View>
+    );
   }
 
   return (
@@ -67,7 +85,12 @@ export default function IncomingCallScreen() {
       <View style={styles.buttonRow}>
         <Pressable
           style={[styles.actionButton, styles.declineButton]}
-          onPress={() => router.replace("/(senior)/home")}
+          onPress={() => {
+            // Family is likely already sitting in the room waiting for an
+            // answer -- let them know rather than leaving them hanging.
+            if (roomName) broadcastCallEnded(roomName);
+            router.replace("/(senior)/home");
+          }}
           disabled={answering}
           accessibilityRole="button"
           accessibilityLabel="Not now"

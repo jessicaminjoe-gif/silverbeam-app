@@ -74,7 +74,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: "center", padding: 24, gap: 12, backgroundColor: colors.cream },
   logo: { width: 84, height: 84, alignSelf: "center", marginBottom: 4 },
-  title: { fontSize: 32, fontWeight: "700", textAlign: "center" },
+  title: { fontSize: 32, fontFamily: "PlayfairDisplay_700Bold", textAlign: "center" },
   titleSilver: { color: colors.navy },
   titleBeam: { color: colors.terracotta },
   subtitle: { fontSize: 16, textAlign: "center", marginBottom: 24, color: colors.textMuted },

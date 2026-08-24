@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
 import { colors } from "@/theme/colors";
 import { CallWebView } from "@/components/CallWebView";
+import { EndCallButton } from "@/components/EndCallButton";
+import { broadcastCallEnded, useCallEndListener } from "@/lib/callSignal";
 
 // Reached by tapping the "is calling" push notification (see the
 // notification-response handler in app/_layout.tsx) or directly if the
@@ -11,8 +12,15 @@ import { CallWebView } from "@/components/CallWebView";
 // from the notification's data payload — this screen doesn't create a
 // room itself, only the senior's "Call Family" button does that.
 export default function FamilyCallScreen() {
-  const { roomUrl } = useLocalSearchParams<{ roomUrl: string }>();
+  const { roomUrl, roomName } = useLocalSearchParams<{ roomUrl: string; roomName?: string }>();
   const [callEnded, setCallEnded] = useState(false);
+
+  useCallEndListener(roomName, () => setCallEnded(true));
+
+  function handleEndCall() {
+    if (roomName) broadcastCallEnded(roomName);
+    setCallEnded(true);
+  }
 
   if (callEnded) {
     return (
@@ -35,15 +43,8 @@ export default function FamilyCallScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <CallWebView roomUrl={roomUrl} onCallEnded={() => setCallEnded(true)} />
-      <Pressable
-        style={styles.endCallButton}
-        onPress={() => setCallEnded(true)}
-        accessibilityRole="button"
-        accessibilityLabel="End call"
-      >
-        <Ionicons name="call" size={22} color={colors.white} style={{ transform: [{ rotate: "135deg" }] }} />
-      </Pressable>
+      <CallWebView roomUrl={roomUrl} onCallEnded={handleEndCall} />
+      <EndCallButton onPress={handleEndCall} />
     </View>
   );
 }
@@ -54,15 +55,4 @@ const styles = StyleSheet.create({
   errorText: { fontSize: 18, color: colors.textMuted, textAlign: "center" },
   backButton: { backgroundColor: colors.terracotta, borderRadius: 10, paddingVertical: 16, paddingHorizontal: 24 },
   backButtonText: { color: colors.white, fontSize: 18, fontWeight: "600" },
-  endCallButton: {
-    position: "absolute",
-    bottom: 24,
-    alignSelf: "center",
-    backgroundColor: colors.danger,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: "center",
-    justifyContent: "center",
-  },
 });

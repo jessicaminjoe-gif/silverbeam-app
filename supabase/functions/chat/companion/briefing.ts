@@ -1,0 +1,111 @@
+// Content-gathering for the daily briefing (chat/index.ts's briefing
+// branch). Each fetcher is independent and best-effort — a failure in one
+// (weather API down, no zip set, etc.) shouldn't block the others or the
+// greeting itself; callers should treat a null/empty result as "just skip
+// this part," never as a hard error.
+
+export function getTimeOfDay(date = new Date()): "morning" | "afternoon" | "evening" {
+  const hour = date.getHours();
+  if (hour < 12) return "morning";
+  if (hour < 17) return "afternoon";
+  return "evening";
+}
+
+// Free, keyless chain: zip -> lat/lon (Zippopotam.us) -> NWS forecast
+// office/grid (api.weather.gov) -> today's forecast text. NWS requires an
+// identifying User-Agent (not a real API key, just a courtesy/policy
+// requirement) or it rejects the request.
+const NWS_USER_AGENT = "SilverBeamCompanionApp (beta, no contact email on file yet)";
+
+export async function fetchWeather(zip: string | null): Promise<string | null> {
+  if (!zip) return null;
+  try {
+    const geoRes = await fetch(`https://api.zippopotam.us/us/${encodeURIComponent(zip)}`);
+    if (!geoRes.ok) return null;
+    const geo = (await geoRes.json()) as { places?: { latitude: string; longitude: string }[] };
+    const place = geo.places?.[0];
+    if (!place) return null;
+
+    const pointsRes = await fetch(`https://api.weather.gov/points/${place.latitude},${place.longitude}`, {
+      headers: { "User-Agent": NWS_USER_AGENT },
+    });
+    if (!pointsRes.ok) return null;
+    const points = (await pointsRes.json()) as { properties?: { forecast?: string } };
+    const forecastUrl = points.properties?.forecast;
+    if (!forecastUrl) return null;
+
+    const forecastRes = await fetch(forecastUrl, { headers: { "User-Agent": NWS_USER_AGENT } });
+    if (!forecastRes.ok) return null;
+    const forecast = (await forecastRes.json()) as {
+      properties?: { periods?: { name: string; detailedForecast: string }[] };
+    };
+    const today = forecast.properties?.periods?.[0];
+    return today ? `${today.name}: ${today.detailedForecast}` : null;
+  } catch (err) {
+    console.error("[briefing] fetchWeather failed:", err);
+    return null;
+  }
+}
+
+// NPR's public top-stories RSS feed — free, no key, no account. Simple
+// regex extraction rather than a full XML parser since RSS <item>/<title>
+// structure is predictable and a parser dependency isn't worth it for
+// three headlines.
+const NEWS_RSS_URL = "https://feeds.npr.org/1001/rss.xml";
+
+export async function fetchNewsHeadlines(limit = 3): Promise<string[]> {
+  try {
+    const res = await fetch(NEWS_RSS_URL);
+    if (!res.ok) return [];
+    const xml = await res.text();
+    const items = xml.match(/<item>[\s\S]*?<\/item>/g) ?? [];
+    const headlines: string[] = [];
+    for (const item of items) {
+      const match = item.match(/<title>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/title>/);
+      if (match?.[1]) headlines.push(match[1].trim());
+      if (headlines.length >= limit) break;
+    }
+    return headlines;
+  } catch (err) {
+    console.error("[briefing] fetchNewsHeadlines failed:", err);
+    return [];
+  }
+}
+
+interface ReminderRow {
+  title: string;
+  recurrence: "yearly" | "daily" | "once";
+  remind_on: string | null;
+}
+
+// userClient (RLS-scoped, not service role) is intentional -- the senior
+// reading their own reminders is exactly what reminders_select_senior
+// already allows.
+export async function fetchTodaysReminders(
+  userClient: { from: (table: string) => any },
+  seniorId: string
+): Promise<string[]> {
+  try {
+    const { data } = await userClient.from("reminders").select("title, recurrence, remind_on").eq("senior_id", seniorId);
+    const rows = (data as ReminderRow[]) ?? [];
+    const now = new Date();
+    const month = now.getMonth() + 1;
+    const day = now.getDate();
+
+    return rows
+      .filter((r) => {
+        if (r.recurrence === "daily") return true;
+        if (!r.remind_on) return false;
+        const [, remindMonth, remindDay] = r.remind_on.split("-").map(Number);
+        if (r.recurrence === "yearly") return remindMonth === month && remindDay === day;
+        // 'once': exact calendar date match, any year (remind_on carries the
+        // real year, but comparing month/day here keeps this in local time
+        // rather than fighting UTC-vs-local date parsing edge cases).
+        return remindMonth === month && remindDay === day;
+      })
+      .map((r) => r.title);
+  } catch (err) {
+    console.error("[briefing] fetchTodaysReminders failed:", err);
+    return [];
+  }
+}

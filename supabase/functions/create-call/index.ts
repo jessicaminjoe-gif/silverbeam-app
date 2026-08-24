@@ -215,7 +215,7 @@ Deno.serve(async (req) => {
     for (const t of tokens ?? []) {
       const title = `${profile.full_name} is calling`;
       const body = "Tap to join the video call";
-      const data = { roomUrl: room.url };
+      const data = { roomUrl: room.url, roomName: room.name };
       await sendExpoPush(t.token, title, body, data, "calls");
       if (typeof EdgeRuntime !== "undefined") {
         EdgeRuntime.waitUntil(scheduleRepeatPushes(t.token, title, body, data, "calls"));

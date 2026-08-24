@@ -4,6 +4,7 @@ import { Slot, useRouter, useSegments } from "expo-router";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import * as Notifications from "expo-notifications";
 import * as SplashScreen from "expo-splash-screen";
+import { useFonts, PlayfairDisplay_700Bold } from "@expo-google-fonts/playfair-display";
 import { supabase } from "@/lib/supabase";
 import { useSession } from "@/state/useSession";
 import { useRegisterPushToken } from "@/hooks/useRegisterPushToken";
@@ -71,12 +72,14 @@ function AuthGate() {
   useRegisterPushToken(profile?.id);
   const [pendingNotification, setPendingNotification] = useState<Record<string, unknown> | null>(null);
   const [splashElapsed, setSplashElapsed] = useState(false);
+  const [fontsLoaded] = useFonts({ PlayfairDisplay_700Bold });
 
   useEffect(() => {
+    if (!fontsLoaded) return;
     SplashScreen.hideAsync().catch(() => {});
     const timer = setTimeout(() => setSplashElapsed(true), MIN_SPLASH_MS);
     return () => clearTimeout(timer);
-  }, []);
+  }, [fontsLoaded]);
 
   // The branded splash is a nice-to-have on a normal launch, but it must
   // never sit on top of and hide something the user opened the app *for* —
@@ -104,12 +107,17 @@ function AuthGate() {
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "call_events", filter: `senior_id=eq.${profile.id}` },
         (payload) => {
-          const row = payload.new as { initiated_by: string; target_room_url: string | null; caller_label: string | null };
+          const row = payload.new as {
+            initiated_by: string;
+            target_room_url: string | null;
+            caller_label: string | null;
+            room_name: string;
+          };
           if (row.initiated_by !== "family" || !row.target_room_url) return;
           setSplashElapsed(true);
           router.push({
             pathname: "/(senior)/incoming-call",
-            params: { roomUrl: row.target_room_url, callerLabel: row.caller_label ?? "" },
+            params: { roomUrl: row.target_room_url, roomName: row.room_name, callerLabel: row.caller_label ?? "" },
           });
         }
       )
@@ -213,16 +221,20 @@ function AuthGate() {
   // instead of the call/photo it was meant to open.
   useEffect(() => {
     if (loading || !pendingNotification || !profile) return;
-    const { roomUrl, callerLabel, kind } = pendingNotification as {
+    const { roomUrl, roomName, callerLabel, kind } = pendingNotification as {
       roomUrl?: string;
+      roomName?: string;
       callerLabel?: string;
       kind?: string;
     };
 
     if (profile.role === "family" && typeof roomUrl === "string") {
-      router.push({ pathname: "/(family)/call", params: { roomUrl } });
+      router.push({ pathname: "/(family)/call", params: { roomUrl, roomName: roomName ?? "" } });
     } else if (profile.role === "senior" && kind === "incoming_call" && typeof roomUrl === "string") {
-      router.push({ pathname: "/(senior)/incoming-call", params: { roomUrl, callerLabel: callerLabel ?? "" } });
+      router.push({
+        pathname: "/(senior)/incoming-call",
+        params: { roomUrl, roomName: roomName ?? "", callerLabel: callerLabel ?? "" },
+      });
     } else if (profile.role === "senior" && kind === "photo") {
       router.push("/(senior)/photos");
     } else {
@@ -243,7 +255,7 @@ function AuthGate() {
   // extra hold (past loading, until MIN_SPLASH_MS) sits on top of it here
   // as a plain overlay instead, which is safe since Slot/Navigation is
   // already fully mounted and ready by that point.
-  if (loading) {
+  if (loading || !fontsLoaded) {
     return (
       <View style={splashStyles.container}>
         <Image source={logoSource} style={splashStyles.logo} accessibilityLabel="SilverBeam" />
@@ -278,7 +290,7 @@ function AuthGate() {
 const splashStyles = StyleSheet.create({
   container: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.cream },
   logo: { width: 96, height: 96, marginBottom: 12 },
-  title: { fontSize: 34, fontWeight: "700" },
+  title: { fontSize: 34, fontFamily: "PlayfairDisplay_700Bold" },
   titleSilver: { color: colors.navy },
   titleBeam: { color: colors.terracotta },
   tagline: { fontSize: 16, color: colors.textMuted, marginTop: 6 },

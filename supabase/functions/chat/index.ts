@@ -14,6 +14,7 @@
 import { createClient } from "npm:@supabase/supabase-js@^2.45.0";
 import { getProvider } from "./companion/config.ts";
 import { scanKeywords, combineEscalation } from "./companion/escalation.ts";
+import { getTimeOfDay, fetchWeather, fetchNewsHeadlines, fetchTodaysReminders } from "./companion/briefing.ts";
 import type { ChatRequestBody } from "./companion/CompanionProvider.ts";
 import type { EscalationResult } from "./companion/CompanionProvider.ts";
 
@@ -93,9 +94,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    const body = (await req.json()) as ChatRequestBody;
-    if (!body?.message || !body?.seniorId) {
-      return new Response(JSON.stringify({ error: "message and seniorId are required" }), {
+    const body = (await req.json()) as ChatRequestBody & { briefing?: boolean };
+    if ((!body?.message && !body?.briefing) || !body?.seniorId) {
+      return new Response(JSON.stringify({ error: "message (or briefing) and seniorId are required" }), {
         status: 400,
         headers: { ...corsHeaders, "content-type": "application/json" },
       });
@@ -115,6 +116,46 @@ Deno.serve(async (req) => {
     if (profile?.role !== "senior") {
       return new Response(JSON.stringify({ error: "Only senior accounts can chat with the companion" }), {
         status: 403,
+        headers: { ...corsHeaders, "content-type": "application/json" },
+      });
+    }
+
+    if (body.briefing) {
+      const { data: briefingSettings } = await userClient
+        .from("companion_settings")
+        .select("companion_name, senior_nickname, location_zip, briefing_weather, briefing_news, briefing_reminders")
+        .eq("senior_id", user.id)
+        .maybeSingle();
+
+      const timeOfDay = getTimeOfDay();
+      const [weather, headlines, reminders] = await Promise.all([
+        briefingSettings?.briefing_weather ? fetchWeather(briefingSettings.location_zip) : Promise.resolve(null),
+        briefingSettings?.briefing_news ? fetchNewsHeadlines() : Promise.resolve([]),
+        briefingSettings?.briefing_reminders !== false ? fetchTodaysReminders(userClient, user.id) : Promise.resolve([]),
+      ]);
+
+      // Framed as an instruction rather than real senior speech -- this is
+      // never shown to the senior (only the assistant's reply is saved/
+      // displayed), it just tells the companion what to fold into its own
+      // greeting, in its own voice, rather than reading a fixed template.
+      const instructionParts = [
+        `It's currently the ${timeOfDay}. Greet me warmly with "Good ${timeOfDay}" (or similar) and my name to start our day.`,
+        weather ? `Today's weather where I live: ${weather}. Mention it briefly and naturally, not as a formal report.` : null,
+        headlines.length ? `Today's top news headlines: ${headlines.join(" | ")}. Briefly mention one or two you think I'd find interesting.` : null,
+        reminders.length ? `Here's what's on my calendar today: ${reminders.join(", ")}. Remind me warmly.` : null,
+        "Keep the whole thing brief and warm, like you're catching up with me for the day -- a few sentences, not a checklist.",
+      ].filter(Boolean);
+
+      const provider = getProvider();
+      const reply = await provider.sendMessage([], instructionParts.join("\n"), {
+        seniorId: user.id,
+        seniorName: briefingSettings?.senior_nickname || profile.full_name,
+        companionName: briefingSettings?.companion_name,
+      });
+
+      await userClient.from("conversation_messages").insert({ senior_id: user.id, role: "assistant", content: reply.message });
+
+      return new Response(JSON.stringify({ message: reply.message }), {
         headers: { ...corsHeaders, "content-type": "application/json" },
       });
     }

@@ -83,7 +83,22 @@ export interface CompanionSettings {
   senior_nickname: string | null;
   voice_id: string | null;
   check_in_options: CheckInOption[];
+  location_zip: string | null;
+  briefing_weather: boolean;
+  briefing_news: boolean;
+  briefing_reminders: boolean;
   updated_at: string;
+}
+
+export type ReminderRecurrence = "yearly" | "daily" | "once";
+
+export interface Reminder {
+  id: string;
+  senior_id: string;
+  title: string;
+  recurrence: ReminderRecurrence;
+  remind_on: string | null;
+  created_at: string;
 }
 
 export interface SharedMedia {
@@ -164,6 +179,12 @@ export interface Database {
         Row: SharedMedia;
         Insert: Partial<SharedMedia> & { senior_id: string; sender_id: string; storage_path: string };
         Update: Partial<SharedMedia>;
+        Relationships: [];
+      };
+      reminders: {
+        Row: Reminder;
+        Insert: Partial<Reminder> & { senior_id: string; title: string; recurrence: ReminderRecurrence };
+        Update: Partial<Reminder>;
         Relationships: [];
       };
     };
