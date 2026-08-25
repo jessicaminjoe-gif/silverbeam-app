@@ -25,6 +25,11 @@ export interface CompanionContext {
   seniorName?: string;
   companionName?: string;
   recentCheckIns?: string[];
+  // Set only when the senior's message is a greeting (see chat/index.ts) --
+  // an instruction, not something to quote verbatim, telling the companion
+  // what today's weather/news/reminders (if enabled in Settings) to weave
+  // into its own reply, plus a nudge to offer the daily check-in.
+  greetingContext?: string;
 }
 
 // Mirrors src/ai/types.ts on the client side — duplicated here because Edge

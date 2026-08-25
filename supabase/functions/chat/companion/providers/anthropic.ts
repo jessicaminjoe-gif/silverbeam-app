@@ -19,6 +19,7 @@ function buildContextPreamble(context: CompanionContext): string {
   if (context.recentCheckIns?.length) {
     lines.push(`Recent check-in summaries (most recent first): ${context.recentCheckIns.join(" | ")}`);
   }
+  if (context.greetingContext) lines.push(context.greetingContext);
   return lines.join(" ");
 }
 

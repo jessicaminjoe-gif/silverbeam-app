@@ -26,6 +26,17 @@ const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY")!;
 const VALID_VOICES = new Set(["alloy", "echo", "fable", "onyx", "nova", "shimmer"]);
 const DEFAULT_VOICE = "nova";
 
+// Steer these three toward sounding like an older adult via gpt-4o-mini-tts's
+// "instructions" param (tts-1 has no style control, just the raw preset
+// voice). echo/Walter is deliberately left off this map -- family confirmed
+// its default tts-1 delivery already sounds right, so it keeps using tts-1
+// unchanged rather than risk a different voice model changing its timbre.
+const OLDER_VOICE_INSTRUCTIONS: Record<string, string> = {
+  nova: "Speak as a warm, friendly woman in her 70s. Gentle, slightly unhurried pacing, like a loving grandmother catching up with family.",
+  shimmer: "Speak as a gentle, soft-spoken woman in her 70s or 80s. Calm and soothing, with an unhurried pace, like a tender grandmother.",
+  onyx: "Speak as a steady, calm man in his 70s. Warm and reassuring, with an unhurried pace, like a wise grandfather.",
+};
+
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
   let binary = "";
@@ -89,13 +100,20 @@ Deno.serve(async (req) => {
     }
     if (!voice || !VALID_VOICES.has(voice)) voice = DEFAULT_VOICE;
 
+    const instructions = OLDER_VOICE_INSTRUCTIONS[voice];
     const ttsRes = await fetch("https://api.openai.com/v1/audio/speech", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${OPENAI_API_KEY}`,
         "content-type": "application/json",
       },
-      body: JSON.stringify({ model: "tts-1", voice, input: text, response_format: "mp3" }),
+      body: JSON.stringify({
+        model: instructions ? "gpt-4o-mini-tts" : "tts-1",
+        voice,
+        input: text,
+        response_format: "mp3",
+        ...(instructions ? { instructions } : {}),
+      }),
     });
 
     if (!ttsRes.ok) {

@@ -177,13 +177,37 @@ Deno.serve(async (req) => {
 
     const { data: companionSettings } = await userClient
       .from("companion_settings")
-      .select("companion_name, senior_nickname")
+      .select("companion_name, senior_nickname, location_zip, briefing_weather, briefing_news, briefing_reminders")
       .eq("senior_id", user.id)
       .maybeSingle();
 
     const history = (recentMessages ?? [])
       .reverse()
       .map((m) => ({ role: m.role === "senior" ? ("user" as const) : ("assistant" as const), content: m.content }));
+
+    // A senior opening a chat turn with a greeting ("hi", "hello", "good
+    // morning", ...) gets the same weather/news/reminders content as the
+    // once-a-day auto-briefing, gated by the same Settings toggles — this
+    // covers the case where they greet the companion later than the first
+    // open of the day, or just say hi again mid-conversation.
+    const GREETING_PATTERN = /^\s*(hi+|hello+|hey+|hiya|howdy|good\s*(morning|afternoon|evening)|morning|afternoon|evening)\b/i;
+    let greetingContext: string | undefined;
+    if (GREETING_PATTERN.test(body.message)) {
+      const [weather, headlines, reminders] = await Promise.all([
+        companionSettings?.briefing_weather ? fetchWeather(companionSettings.location_zip) : Promise.resolve(null),
+        companionSettings?.briefing_news ? fetchNewsHeadlines() : Promise.resolve([]),
+        companionSettings?.briefing_reminders !== false ? fetchTodaysReminders(userClient, user.id) : Promise.resolve([]),
+      ]);
+      greetingContext = [
+        "The person just greeted you -- greet them back warmly, then naturally weave in the following if present (keep it brief and conversational, not a checklist):",
+        weather ? `Today's weather: ${weather}.` : null,
+        headlines.length ? `Today's news headlines: ${headlines.join(" | ")}.` : null,
+        reminders.length ? `Today's reminders: ${reminders.join(", ")}.` : null,
+        "End by warmly asking if they'd like to do their check-in for today.",
+      ]
+        .filter(Boolean)
+        .join(" ");
+    }
 
     const provider = getProvider();
     const reply = await provider.sendMessage(history, body.message, {
@@ -194,6 +218,7 @@ Deno.serve(async (req) => {
       seniorName: companionSettings?.senior_nickname || profile.full_name,
       companionName: companionSettings?.companion_name,
       recentCheckIns: (recentCheckIns ?? []).map((c) => c.summary).filter(Boolean) as string[],
+      greetingContext,
     });
 
     // Combine the LLM's self-reported tag with a deterministic keyword scan

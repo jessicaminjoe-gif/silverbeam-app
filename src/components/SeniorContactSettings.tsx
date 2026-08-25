@@ -17,7 +17,22 @@ const RECURRENCE_OPTIONS: { value: ReminderRecurrence; label: string }[] = [
   { value: "yearly", label: "Every year" },
   { value: "daily", label: "Every day" },
 ];
-const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const DATE_PATTERN = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
+
+// Storage stays ISO (YYYY-MM-DD, matching the `date` column and briefing.ts's
+// month/day parsing) -- only entry and display use month/day/year, since
+// that's the format seniors and family expect to read and type.
+function mdyToIso(mdy: string): string | null {
+  const match = DATE_PATTERN.exec(mdy);
+  if (!match) return null;
+  const [, month, day, year] = match;
+  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+}
+
+function isoToMdy(iso: string): string {
+  const [year, month, day] = iso.split("-");
+  return `${month}/${day}/${year}`;
+}
 
 interface Props {
   senior: LinkedSenior;
@@ -100,15 +115,16 @@ export function SeniorContactSettings({ senior, onChanged }: Props) {
   async function handleAddReminder() {
     const title = newReminderTitle.trim();
     if (!title) return;
-    if (newReminderRecurrence !== "daily" && !DATE_PATTERN.test(newReminderDate)) {
-      Alert.alert("Add a date", "Enter the date as YYYY-MM-DD.");
+    const isoDate = newReminderRecurrence === "daily" ? null : mdyToIso(newReminderDate);
+    if (newReminderRecurrence !== "daily" && !isoDate) {
+      Alert.alert("Add a date", "Enter the date as MM/DD/YYYY.");
       return;
     }
     setAddingReminder(true);
     const { error } = await addReminder({
       title,
       recurrence: newReminderRecurrence,
-      remind_on: newReminderRecurrence === "daily" ? null : newReminderDate,
+      remind_on: isoDate,
     });
     setAddingReminder(false);
     if (error) {
@@ -359,8 +375,10 @@ export function SeniorContactSettings({ senior, onChanged }: Props) {
                   {reminder.recurrence === "daily"
                     ? "Every day"
                     : reminder.recurrence === "yearly"
-                      ? `Every year · ${reminder.remind_on}`
-                      : reminder.remind_on ?? ""}
+                      ? `Every year · ${reminder.remind_on ? isoToMdy(reminder.remind_on) : ""}`
+                      : reminder.remind_on
+                        ? isoToMdy(reminder.remind_on)
+                        : ""}
                 </Text>
               </View>
               <Pressable
@@ -402,8 +420,9 @@ export function SeniorContactSettings({ senior, onChanged }: Props) {
                 style={styles.input}
                 value={newReminderDate}
                 onChangeText={setNewReminderDate}
-                placeholder="YYYY-MM-DD"
+                placeholder="MM/DD/YYYY"
                 maxLength={10}
+                keyboardType="number-pad"
                 accessibilityLabel="Reminder date"
               />
             )}
