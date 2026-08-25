@@ -70,24 +70,5 @@ export function useCompanionChat(soundEnabled: boolean) {
     speak(content);
   }, []);
 
-  // Distinct from sendMessage: no senior-authored text, no escalation
-  // check, and the reply is generated server-side from time-of-day +
-  // weather/news/reminders rather than anything typed. See chat/index.ts's
-  // briefing branch.
-  const triggerBriefing = useCallback(async () => {
-    if (!profile) return;
-    try {
-      const { data, error } = await supabase.functions.invoke<{ message: string }>("chat", {
-        body: { seniorId: profile.id, briefing: true },
-      });
-      if (error || !data?.message) return;
-      setMessages((prev) => [...prev, { id: `briefing-${Date.now()}`, role: "assistant", content: data.message }]);
-      if (soundEnabled) speak(data.message);
-    } catch {
-      // Best-effort -- a missed daily greeting isn't worth surfacing an
-      // error over, the regular chat still works fine either way.
-    }
-  }, [profile?.id, soundEnabled]);
-
-  return { messages, sendMessage, sending, loadingHistory, replay, triggerBriefing };
+  return { messages, sendMessage, sending, loadingHistory, replay };
 }

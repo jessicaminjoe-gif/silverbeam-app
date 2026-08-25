@@ -18,6 +18,7 @@ export default function SeniorLayout() {
       }}
     >
       <Stack.Screen name="home" options={{ title: "SilverBeam", headerShown: false }} />
+      <Stack.Screen name="chat" options={{ title: "Chat", headerShown: false }} />
       <Stack.Screen name="checkin" options={{ title: "Check In" }} />
       <Stack.Screen name="call-picker" options={{ title: "Let's Connect" }} />
       <Stack.Screen name="call" options={{ title: "Video Call" }} />

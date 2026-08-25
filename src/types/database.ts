@@ -111,6 +111,15 @@ export interface SharedMedia {
   created_at: string;
 }
 
+export interface FamilyNote {
+  id: string;
+  senior_id: string;
+  sender_id: string;
+  body: string;
+  viewed_at: string | null;
+  created_at: string;
+}
+
 export interface PushToken {
   id: string;
   profile_id: string;
@@ -179,6 +188,12 @@ export interface Database {
         Row: SharedMedia;
         Insert: Partial<SharedMedia> & { senior_id: string; sender_id: string; storage_path: string };
         Update: Partial<SharedMedia>;
+        Relationships: [];
+      };
+      family_notes: {
+        Row: FamilyNote;
+        Insert: Partial<FamilyNote> & { senior_id: string; sender_id: string; body: string };
+        Update: Partial<FamilyNote>;
         Relationships: [];
       };
       reminders: {

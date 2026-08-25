@@ -1,29 +1,19 @@
-import { useEffect, useRef, useState } from "react";
-import {
-  View,
-  Text,
-  Image,
-  TextInput,
-  Pressable,
-  FlatList,
-  StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
-  ActivityIndicator,
-  Alert,
-} from "react-native";
+import { useCallback, useMemo, useState } from "react";
+import { View, Text, Image, Pressable, FlatList, StyleSheet, ActivityIndicator, Platform } from "react-native";
 import { router } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "@/lib/supabase";
 import { speak } from "@/lib/speech";
-import { useCompanionChat } from "@/hooks/useCompanionChat";
 import { useCompanionSettings } from "@/hooks/useCompanionSettings";
-import { useVoiceInput } from "@/hooks/useVoiceInput";
-import { useSharedMedia } from "@/hooks/useSharedMedia";
+import { useDailyBriefing } from "@/hooks/useDailyBriefing";
+import { useCallContacts, type CallContact } from "@/hooks/useCallContacts";
+import { useSharedMedia, type SharedMediaItem } from "@/hooks/useSharedMedia";
+import { useFamilyNotes } from "@/hooks/useFamilyNotes";
 import { useSession } from "@/state/useSession";
 import { colors } from "@/theme/colors";
+import type { FamilyNote } from "@/types/database";
 
 // expo export --platform web doesn't resolve local require()'d image
 // sources correctly in the static bundle — see (auth)/login.tsx for the
@@ -31,295 +21,306 @@ import { colors } from "@/theme/colors";
 // the proven pattern removes any doubt).
 const logoSource = Platform.OS === "web" ? { uri: "/brand-icon.png" } : require("../../assets/icon.png");
 
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
+
+type FeedItem =
+  | { kind: "photo"; id: string; senderId: string; createdAt: string; viewed: boolean; item: SharedMediaItem }
+  | { kind: "note"; id: string; senderId: string; createdAt: string; viewed: boolean; item: FamilyNote };
+
+// Family-first home: the senior's first view of the app is their family --
+// who to call, and what family has recently sent -- with the AI companion
+// one tap away via the Chat button, not the default view. See chat.tsx for
+// where the conversation UI moved.
 export default function SeniorHomeScreen() {
   const insets = useSafeAreaInsets();
   const profile = useSession((s) => s.profile);
-  const [soundEnabled, setSoundEnabled] = useState(true);
-  const { messages, sendMessage, sending, loadingHistory, replay, triggerBriefing } = useCompanionChat(soundEnabled);
+  const [soundEnabled] = useState(true);
   const { settings } = useCompanionSettings(profile?.id);
-  const { unreadCount: unreadPhotoCount, reload: reloadPhotos } = useSharedMedia(profile?.id);
-  const voice = useVoiceInput();
-  const [input, setInput] = useState("");
-  const listRef = useRef<FlatList>(null);
-  const seniorDisplayName = settings.senior_nickname || profile?.full_name || "there";
+  const { contacts, loading: loadingContacts } = useCallContacts();
+  const { items: photos, loading: loadingPhotos, reload: reloadPhotos, markAllViewed: markPhotosViewed } = useSharedMedia(profile?.id);
+  const { notes, loading: loadingNotes, reload: reloadNotes, markAllViewed: markNotesViewed } = useFamilyNotes(profile?.id);
+  useDailyBriefing(profile?.id, soundEnabled);
 
-  // Announces new photos the moment they arrive while the app is open
-  // (the push notification covers the app-closed case) — reads the
-  // sender's relationship the same way the push notification's title does.
-  useEffect(() => {
-    if (!profile?.id) return;
-    const channel = supabase
-      .channel(`shared_media:${profile.id}`)
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "shared_media", filter: `senior_id=eq.${profile.id}` },
-        async (payload) => {
-          reloadPhotos();
-          const senderId = (payload.new as { sender_id: string }).sender_id;
-          const { data: link } = await supabase
-            .from("senior_family_links")
-            .select("relationship")
-            .eq("senior_id", profile.id)
-            .eq("family_member_id", senderId)
-            .maybeSingle();
-          speak(`${link?.relationship || "Family"} sent you new photos!`);
-        }
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [profile?.id, reloadPhotos]);
+  const seniorDisplayName = settings.senior_nickname || profile?.full_name?.split(" ")[0] || "there";
 
-  // Fires the greeting + weather/news/reminders once per calendar day, the
-  // first time the senior opens the app that day -- not on every mount, so
-  // reopening the app an hour later doesn't repeat it.
-  useEffect(() => {
-    if (!profile?.id || loadingHistory) return;
-    const key = `briefing-shown-${profile.id}-${new Date().toDateString()}`;
-    let cancelled = false;
-    AsyncStorage.getItem(key).then((shown) => {
-      if (shown || cancelled) return;
-      triggerBriefing();
-      AsyncStorage.setItem(key, "1");
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [profile?.id, loadingHistory, triggerBriefing]);
+  const contactsById = useMemo(() => {
+    const map = new Map<string, CallContact>();
+    for (const c of contacts) map.set(c.familyMemberId, c);
+    return map;
+  }, [contacts]);
 
-  async function handleSend() {
-    const text = input.trim();
-    if (!text) return;
-    setInput("");
-    await sendMessage(text);
-    requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
+  function senderLabel(senderId: string): string {
+    const contact = contactsById.get(senderId);
+    return contact?.relationship || contact?.fullName || "Family";
   }
 
-  // Fills the message box with what it heard rather than sending straight
-  // away — gives the senior a chance to see (and fix, or just re-record)
-  // what was transcribed before it actually sends, which matters more here
-  // than for typing since speech recognition can mishear things.
-  async function handleMicPress() {
-    if (voice.state === "idle") {
-      await voice.startRecording();
-    } else if (voice.state === "recording") {
-      const result = await voice.stopRecording();
-      if (result.text) {
-        setInput((prev) => (prev ? `${prev} ${result.text}` : result.text ?? ""));
-      } else {
-        // Friendly wording for the senior; the real error is already
-        // logged in the hook for us to diagnose separately.
-        Alert.alert("Sorry, I didn't catch that", "Please try again.");
-      }
-    }
-  }
+  const feed: FeedItem[] = useMemo(() => {
+    const photoItems: FeedItem[] = photos.map((p) => ({
+      kind: "photo",
+      id: p.id,
+      senderId: p.sender_id,
+      createdAt: p.created_at,
+      viewed: !!p.viewed_at,
+      item: p,
+    }));
+    const noteItems: FeedItem[] = notes.map((n) => ({
+      kind: "note",
+      id: n.id,
+      senderId: n.sender_id,
+      createdAt: n.created_at,
+      viewed: !!n.viewed_at,
+      item: n,
+    }));
+    return [...photoItems, ...noteItems].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+  }, [photos, notes]);
+
+  // Clears both badges the moment the senior actually looks at the feed,
+  // not just when new items happen to arrive. Both mark-viewed functions
+  // are recreated (via useCallback in their hooks) whenever their item
+  // list changes, so they're included here deliberately -- omitting them
+  // would freeze this effect's closure onto a stale, possibly-empty items
+  // array from an earlier render and silently stop marking anything read.
+  useFocusEffect(
+    useCallback(() => {
+      markPhotosViewed();
+      markNotesViewed();
+    }, [markPhotosViewed, markNotesViewed])
+  );
+
+  // Announces new photos/notes the moment they arrive while the app is
+  // open (the push notification covers the app-closed case).
+  useFocusEffect(
+    useCallback(() => {
+      if (!profile?.id) return;
+      const channel = supabase
+        .channel(`family-feed:${profile.id}`)
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "shared_media", filter: `senior_id=eq.${profile.id}` },
+          (payload) => {
+            reloadPhotos();
+            const senderId = (payload.new as { sender_id: string }).sender_id;
+            speak(`${senderLabel(senderId)} sent you new photos!`);
+          }
+        )
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "family_notes", filter: `senior_id=eq.${profile.id}` },
+          (payload) => {
+            reloadNotes();
+            const senderId = (payload.new as { sender_id: string }).sender_id;
+            speak(`${senderLabel(senderId)} sent you a note!`);
+          }
+        )
+        .subscribe();
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }, [profile?.id, contactsById, reloadPhotos, reloadNotes])
+  );
+
+  const loading = loadingContacts || loadingPhotos || loadingNotes;
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={insets.top}
-    >
-      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <View style={styles.titleRow}>
-          <Pressable
-            onPress={() => router.push("/(senior)/photos")}
-            accessibilityRole="button"
-            accessibilityLabel={unreadPhotoCount > 0 ? `Photos from family, ${unreadPhotoCount} new` : "Photos from family"}
-          >
-            <Image source={logoSource} style={styles.logoIcon} />
-            {unreadPhotoCount > 0 && <View style={styles.logoBadge} />}
-          </Pressable>
-          <Pressable
-            style={styles.callButton}
-            onPress={() => router.push("/(senior)/call-picker")}
-            accessibilityRole="button"
-            accessibilityLabel="Let's Connect. Tap to video call."
-          >
-            <Ionicons name="videocam" size={28} color={colors.white} />
-            <View>
-              <Text style={styles.callButtonText}>Let's Connect</Text>
-              <Text style={styles.callButtonSubtext}>Tap to video call</Text>
-            </View>
-          </Pressable>
-          <Pressable
-            style={styles.soundButton}
-            onPress={() => setSoundEnabled((prev) => !prev)}
-            accessibilityRole="button"
-            accessibilityLabel={soundEnabled ? "Turn off spoken replies" : "Turn on spoken replies"}
-            hitSlop={8}
-          >
-            <Ionicons name={soundEnabled ? "volume-high" : "volume-mute"} size={28} color={colors.navy} />
-          </Pressable>
-        </View>
+    <View style={[styles.screen, { paddingTop: insets.top + 12 }]}>
+      <View style={styles.header}>
+        <Image source={logoSource} style={styles.logoIcon} />
+        <Text style={styles.greeting} numberOfLines={1}>
+          {getGreeting()}, {seniorDisplayName}!
+        </Text>
       </View>
 
-      {loadingHistory ? (
-        <ActivityIndicator style={{ marginTop: 40 }} size="large" />
+      {contacts.length > 0 && (
+        <FlatList
+          horizontal
+          data={contacts}
+          keyExtractor={(item) => item.familyMemberId}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.contactRow}
+          renderItem={({ item }) => <ContactBubble contact={item} />}
+        />
+      )}
+
+      {loading ? (
+        <ActivityIndicator style={{ marginTop: 40 }} size="large" color={colors.terracotta} />
       ) : (
         <FlatList
-          ref={listRef}
-          data={messages}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.list}
-          onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
-          renderItem={({ item }) => (
-            <View style={[styles.bubble, item.role === "senior" ? styles.bubbleSenior : styles.bubbleAssistant]}>
-              <Text style={styles.bubbleText}>{item.content}</Text>
-              {item.role === "assistant" && (
-                <Pressable
-                  style={styles.replayButton}
-                  onPress={() => replay(item.content)}
-                  accessibilityRole="button"
-                  accessibilityLabel="Play this reply out loud again"
-                  hitSlop={8}
-                >
-                  <Ionicons name="volume-high" size={20} color={colors.navy} />
-                </Pressable>
-              )}
-            </View>
-          )}
+          data={feed}
+          keyExtractor={(item) => `${item.kind}-${item.id}`}
+          contentContainerStyle={styles.feedList}
+          renderItem={({ item }) => <FeedCard item={item} senderLabel={senderLabel(item.senderId)} />}
           ListEmptyComponent={
-            <Text style={styles.emptyText}>
-              Hi {seniorDisplayName}! {settings.companion_name} is here to chat or help you connect with a loved one.
-            </Text>
+            <Text style={styles.emptyText}>Nothing from family yet. When they send a photo or note, it'll show up here.</Text>
           }
         />
       )}
 
-      <View style={styles.inputRow}>
+      <View style={[styles.actionRow, { paddingBottom: insets.bottom + 12 }]}>
         <Pressable
           style={styles.checkinButton}
           onPress={() => router.push("/(senior)/checkin")}
           accessibilityRole="button"
           accessibilityLabel="Daily Check In"
         >
+          <Ionicons name="happy" size={26} color={colors.navy} />
           <Text style={styles.checkinButtonText}>Check In</Text>
         </Pressable>
         <Pressable
-          style={[styles.micButton, voice.state === "recording" && styles.micButtonRecording]}
-          onPress={handleMicPress}
-          disabled={voice.state === "transcribing"}
+          style={styles.chatButton}
+          onPress={() => router.push("/(senior)/chat")}
           accessibilityRole="button"
-          accessibilityLabel={voice.state === "recording" ? "Stop recording" : "Speak your message"}
+          accessibilityLabel={`Chat with ${settings.companion_name}`}
         >
-          {voice.state === "transcribing" ? (
-            <ActivityIndicator color={colors.white} />
-          ) : (
-            <Ionicons name={voice.state === "recording" ? "stop" : "mic"} size={34} color={colors.white} />
-          )}
-        </Pressable>
-        <TextInput
-          style={styles.input}
-          value={input}
-          onChangeText={setInput}
-          placeholder={voice.state === "recording" ? "Listening..." : "Type or tap the mic to speak..."}
-          multiline
-          accessibilityLabel="Message"
-        />
-        <Pressable
-          style={styles.sendButton}
-          onPress={handleSend}
-          disabled={sending || !input.trim()}
-          accessibilityRole="button"
-          accessibilityLabel="Send"
-        >
-          {sending ? <ActivityIndicator color={colors.white} /> : <Text style={styles.sendButtonText}>Send</Text>}
+          <Ionicons name="chatbubble-ellipses" size={26} color={colors.white} />
+          <Text style={styles.chatButtonText}>Chat with {settings.companion_name}</Text>
         </Pressable>
       </View>
-    </KeyboardAvoidingView>
+    </View>
+  );
+}
+
+function ContactBubble({ contact }: { contact: CallContact }) {
+  const primaryLabel = contact.relationship || contact.fullName;
+  return (
+    <Pressable
+      style={styles.contactBubble}
+      onPress={() =>
+        router.push({
+          pathname: "/(senior)/call",
+          params: { familyMemberId: contact.familyMemberId, contactLabel: primaryLabel },
+        })
+      }
+      accessibilityRole="button"
+      accessibilityLabel={`Video call ${contact.fullName}${contact.relationship ? `, ${contact.relationship}` : ""}`}
+    >
+      {contact.avatarUrl ? (
+        <Image source={{ uri: contact.avatarUrl }} style={styles.contactAvatar} />
+      ) : (
+        <View style={[styles.contactAvatar, styles.contactAvatarPlaceholder]}>
+          <Text style={styles.contactAvatarInitial}>{contact.fullName[0]?.toUpperCase() ?? "?"}</Text>
+        </View>
+      )}
+      <View style={styles.contactCallBadge}>
+        <Ionicons name="videocam" size={14} color={colors.white} />
+      </View>
+      <Text style={styles.contactName} numberOfLines={1}>
+        {primaryLabel}
+      </Text>
+    </Pressable>
+  );
+}
+
+function FeedCard({ item, senderLabel }: { item: FeedItem; senderLabel: string }) {
+  const timeLabel = new Date(item.createdAt).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+
+  if (item.kind === "photo") {
+    return (
+      <Pressable
+        style={styles.feedCard}
+        onPress={() => router.push("/(senior)/photos")}
+        accessibilityRole="button"
+        accessibilityLabel={`Photo from ${senderLabel}`}
+      >
+        <View style={styles.feedCardHeader}>
+          <Text style={styles.feedSender}>{senderLabel}</Text>
+          <Text style={styles.feedTime}>{timeLabel}</Text>
+          {!item.viewed && <View style={styles.newDot} />}
+        </View>
+        {item.item.signedUrl && <Image source={{ uri: item.item.signedUrl }} style={styles.feedPhoto} />}
+        {item.item.caption && <Text style={styles.feedCaption}>{item.item.caption}</Text>}
+      </Pressable>
+    );
+  }
+
+  return (
+    <View style={styles.feedCard}>
+      <View style={styles.feedCardHeader}>
+        <Text style={styles.feedSender}>{senderLabel}</Text>
+        <Text style={styles.feedTime}>{timeLabel}</Text>
+        {!item.viewed && <View style={styles.newDot} />}
+      </View>
+      <Text style={styles.feedNoteText}>{item.item.body}</Text>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.cream },
   header: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
     paddingHorizontal: 20,
     paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    backgroundColor: colors.cream,
-    gap: 12,
   },
-  titleRow: { flexDirection: "row", alignItems: "center", gap: 12 },
-  logoIcon: { width: 60, height: 60, borderRadius: 14 },
-  soundButton: { width: 60, alignItems: "center" },
-  logoBadge: {
+  logoIcon: { width: 44, height: 44, borderRadius: 12 },
+  greeting: { flex: 1, fontSize: 24, fontWeight: "700", color: colors.navy },
+  contactRow: { paddingHorizontal: 16, paddingBottom: 12, gap: 14 },
+  contactBubble: { alignItems: "center", width: 84, gap: 4 },
+  contactAvatar: { width: 68, height: 68, borderRadius: 34 },
+  contactAvatarPlaceholder: { backgroundColor: colors.sageLight, alignItems: "center", justifyContent: "center" },
+  contactAvatarInitial: { fontSize: 26, fontWeight: "700", color: colors.navy },
+  contactCallBadge: {
     position: "absolute",
-    top: -2,
-    right: -2,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: colors.danger,
+    top: 44,
+    left: 44,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.terracotta,
+    alignItems: "center",
+    justifyContent: "center",
     borderWidth: 2,
     borderColor: colors.cream,
   },
-  callButton: {
-    flex: 1,
-    backgroundColor: colors.terracotta,
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+  contactName: { fontSize: 13, fontWeight: "600", color: colors.navy, maxWidth: 84, textAlign: "center" },
+  feedList: { paddingHorizontal: 16, paddingBottom: 12, gap: 12, flexGrow: 1 },
+  emptyText: { fontSize: 18, textAlign: "center", color: colors.textMuted, marginTop: 40, paddingHorizontal: 20 },
+  feedCard: { backgroundColor: colors.white, borderRadius: 14, padding: 14, gap: 8 },
+  feedCardHeader: { flexDirection: "row", alignItems: "center", gap: 8 },
+  feedSender: { fontSize: 15, fontWeight: "700", color: colors.navy },
+  feedTime: { flex: 1, fontSize: 12, color: colors.textMuted },
+  newDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.danger },
+  feedPhoto: { width: "100%", aspectRatio: 4 / 3, borderRadius: 10, backgroundColor: colors.sageLight },
+  feedCaption: { fontSize: 15, color: colors.text },
+  feedNoteText: { fontSize: 17, lineHeight: 24, color: colors.text },
+  actionRow: {
     flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
     gap: 10,
-    minHeight: 60,
-  },
-  callButtonText: { color: colors.white, fontSize: 20, fontWeight: "700" },
-  callButtonSubtext: { color: colors.white, fontSize: 14, opacity: 0.85, marginTop: 2 },
-  list: { padding: 16, gap: 10, flexGrow: 1, backgroundColor: colors.cream },
-  emptyText: { fontSize: 26, fontWeight: "600", textAlign: "center", marginTop: 40, lineHeight: 34, color: colors.navy, paddingHorizontal: 12 },
-  bubble: { borderRadius: 14, padding: 14, maxWidth: "85%" },
-  bubbleSenior: { backgroundColor: colors.peach, alignSelf: "flex-end" },
-  bubbleAssistant: { backgroundColor: colors.sageLight, alignSelf: "flex-start", paddingRight: 44 },
-  bubbleText: { fontSize: 20, lineHeight: 28, color: colors.text },
-  replayButton: { position: "absolute", right: 10, bottom: 10 },
-  inputRow: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    padding: 12,
-    gap: 8,
+    paddingHorizontal: 16,
+    paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: colors.border,
     backgroundColor: colors.cream,
   },
   checkinButton: {
-    backgroundColor: colors.sageLight,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    justifyContent: "center",
-    minHeight: 60,
-  },
-  checkinButtonText: { fontSize: 16, fontWeight: "600", color: colors.navy },
-  micButton: {
-    backgroundColor: colors.navy,
-    borderRadius: 38,
-    width: 76,
-    height: 76,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    gap: 8,
+    backgroundColor: colors.sageLight,
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    minHeight: 56,
   },
-  micButtonRecording: { backgroundColor: colors.danger },
-  input: {
+  checkinButtonText: { fontSize: 17, fontWeight: "700", color: colors.navy },
+  chatButton: {
     flex: 1,
-    fontSize: 18,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 10,
-    padding: 12,
-    minHeight: 60,
-    maxHeight: 120,
-    color: colors.text,
-    backgroundColor: colors.white,
-  },
-  sendButton: {
-    backgroundColor: colors.terracotta,
-    borderRadius: 10,
-    paddingHorizontal: 20,
+    flexDirection: "row",
+    alignItems: "center",
     justifyContent: "center",
-    minHeight: 60,
+    gap: 8,
+    backgroundColor: colors.terracotta,
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    minHeight: 56,
   },
-  sendButtonText: { color: colors.white, fontSize: 18, fontWeight: "700" },
+  chatButtonText: { fontSize: 17, fontWeight: "700", color: colors.white },
 });
