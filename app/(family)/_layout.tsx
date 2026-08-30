@@ -15,7 +15,11 @@ export default function FamilyLayout() {
     >
       <Tabs.Screen
         name="dashboard"
-        options={{ title: "Updates", tabBarIcon: ({ color, size }) => <Ionicons name="home" color={color} size={size} /> }}
+        options={{ title: "Home", tabBarIcon: ({ color, size }) => <Ionicons name="home" color={color} size={size} /> }}
+      />
+      <Tabs.Screen
+        name="updates"
+        options={{ title: "Updates", tabBarIcon: ({ color, size }) => <Ionicons name="notifications" color={color} size={size} /> }}
       />
       <Tabs.Screen
         name="senior-profile"
