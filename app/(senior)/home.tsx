@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { View, Text, Image, Pressable, FlatList, StyleSheet, ActivityIndicator, Platform } from "react-native";
+import { View, Text, Image, Pressable, FlatList, StyleSheet, ActivityIndicator, Platform, useWindowDimensions } from "react-native";
 import { router } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
@@ -38,11 +38,18 @@ type FeedItem =
 // where the conversation UI moved.
 export default function SeniorHomeScreen() {
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
   const profile = useSession((s) => s.profile);
   const [soundEnabled] = useState(true);
   const { settings } = useCompanionSettings(profile?.id);
   const { contacts, loading: loadingContacts } = useCallContacts();
-  const { items: photos, loading: loadingPhotos, reload: reloadPhotos, markAllViewed: markPhotosViewed } = useSharedMedia(profile?.id);
+  const {
+    items: photos,
+    unreadCount: unreadPhotoCount,
+    loading: loadingPhotos,
+    reload: reloadPhotos,
+    markAllViewed: markPhotosViewed,
+  } = useSharedMedia(profile?.id);
   const { notes, loading: loadingNotes, reload: reloadNotes, markAllViewed: markNotesViewed } = useFamilyNotes(profile?.id);
   useDailyBriefing(profile?.id, soundEnabled);
 
@@ -135,16 +142,27 @@ export default function SeniorHomeScreen() {
         </Text>
       </View>
 
-      {contacts.length > 0 && (
-        <FlatList
-          horizontal
-          data={contacts}
-          keyExtractor={(item) => item.familyMemberId}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.contactRow}
-          renderItem={({ item }) => <ContactBubble contact={item} />}
-        />
-      )}
+      <View style={[styles.topButtonRow, { minHeight: windowHeight * 0.33 }]}>
+        <Pressable
+          style={styles.videoCallButton}
+          onPress={() => router.push("/(senior)/call-picker")}
+          accessibilityRole="button"
+          accessibilityLabel="Video Call"
+        >
+          <Ionicons name="videocam" size={48} color={colors.white} />
+          <Text style={styles.videoCallButtonText}>Video Call</Text>
+        </Pressable>
+        <Pressable
+          style={styles.photosButton}
+          onPress={() => router.push("/(senior)/photos")}
+          accessibilityRole="button"
+          accessibilityLabel={unreadPhotoCount > 0 ? `Photos, ${unreadPhotoCount} new` : "Photos"}
+        >
+          <Ionicons name="images" size={48} color={colors.navy} />
+          <Text style={styles.photosButtonText}>Photos</Text>
+          {unreadPhotoCount > 0 && <View style={styles.photosButtonBadge} />}
+        </Pressable>
+      </View>
 
       {loading ? (
         <ActivityIndicator style={{ marginTop: 40 }} size="large" color={colors.terracotta} />
@@ -181,37 +199,6 @@ export default function SeniorHomeScreen() {
         </Pressable>
       </View>
     </View>
-  );
-}
-
-function ContactBubble({ contact }: { contact: CallContact }) {
-  const primaryLabel = contact.relationship || contact.fullName;
-  return (
-    <Pressable
-      style={styles.contactBubble}
-      onPress={() =>
-        router.push({
-          pathname: "/(senior)/call",
-          params: { familyMemberId: contact.familyMemberId, contactLabel: primaryLabel },
-        })
-      }
-      accessibilityRole="button"
-      accessibilityLabel={`Video call ${contact.fullName}${contact.relationship ? `, ${contact.relationship}` : ""}`}
-    >
-      {contact.avatarUrl ? (
-        <Image source={{ uri: contact.avatarUrl }} style={styles.contactAvatar} />
-      ) : (
-        <View style={[styles.contactAvatar, styles.contactAvatarPlaceholder]}>
-          <Text style={styles.contactAvatarInitial}>{contact.fullName[0]?.toUpperCase() ?? "?"}</Text>
-        </View>
-      )}
-      <View style={styles.contactCallBadge}>
-        <Ionicons name="videocam" size={14} color={colors.white} />
-      </View>
-      <Text style={styles.contactName} numberOfLines={1}>
-        {primaryLabel}
-      </Text>
-    </Pressable>
   );
 }
 
@@ -260,25 +247,34 @@ const styles = StyleSheet.create({
   },
   logoIcon: { width: 44, height: 44, borderRadius: 12 },
   greeting: { flex: 1, fontSize: 24, fontWeight: "700", color: colors.navy },
-  contactRow: { paddingHorizontal: 16, paddingBottom: 12, gap: 14 },
-  contactBubble: { alignItems: "center", width: 84, gap: 4 },
-  contactAvatar: { width: 68, height: 68, borderRadius: 34 },
-  contactAvatarPlaceholder: { backgroundColor: colors.sageLight, alignItems: "center", justifyContent: "center" },
-  contactAvatarInitial: { fontSize: 26, fontWeight: "700", color: colors.navy },
-  contactCallBadge: {
-    position: "absolute",
-    top: 44,
-    left: 44,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: colors.terracotta,
+  topButtonRow: { flexDirection: "row", gap: 12, paddingHorizontal: 16, paddingBottom: 12 },
+  videoCallButton: {
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 2,
-    borderColor: colors.cream,
+    gap: 10,
+    backgroundColor: colors.terracotta,
+    borderRadius: 18,
   },
-  contactName: { fontSize: 13, fontWeight: "600", color: colors.navy, maxWidth: 84, textAlign: "center" },
+  videoCallButtonText: { fontSize: 22, fontWeight: "800", color: colors.white },
+  photosButton: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+    backgroundColor: colors.sageLight,
+    borderRadius: 18,
+  },
+  photosButtonText: { fontSize: 22, fontWeight: "800", color: colors.navy },
+  photosButtonBadge: {
+    position: "absolute",
+    top: 14,
+    right: 14,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: colors.danger,
+  },
   feedList: { paddingHorizontal: 16, paddingBottom: 12, gap: 12, flexGrow: 1 },
   emptyText: { fontSize: 18, textAlign: "center", color: colors.textMuted, marginTop: 40, paddingHorizontal: 20 },
   feedCard: { backgroundColor: colors.white, borderRadius: 14, padding: 14, gap: 8 },
@@ -299,6 +295,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.cream,
   },
   checkinButton: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
