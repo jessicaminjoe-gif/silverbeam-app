@@ -144,6 +144,7 @@ Deno.serve(async (req) => {
         headlines.length ? `Today's top news headlines: ${headlines.join(" | ")}. Briefly mention one or two you think I'd find interesting.` : null,
         reminders.length ? `Here's what's on my calendar today: ${reminders.join(", ")}. Remind me warmly.` : null,
         "Keep the whole thing brief and warm, like you're catching up with me for the day -- a few sentences, not a checklist.",
+        `Don't end with a question. Instead close with a short, warm well-wish for the rest of the ${timeOfDay} (for example, "Hope you enjoy the rest of your ${timeOfDay}").`,
       ].filter(Boolean);
 
       const provider = getProvider();
@@ -193,6 +194,7 @@ Deno.serve(async (req) => {
     const GREETING_PATTERN = /^\s*(hi+|hello+|hey+|hiya|howdy|good\s*(morning|afternoon|evening)|morning|afternoon|evening)\b/i;
     let greetingContext: string | undefined;
     if (GREETING_PATTERN.test(body.message)) {
+      const timeOfDay = getTimeOfDay();
       const [weather, headlines, reminders] = await Promise.all([
         companionSettings?.briefing_weather ? fetchWeather(companionSettings.location_zip) : Promise.resolve(null),
         companionSettings?.briefing_news ? fetchNewsHeadlines() : Promise.resolve([]),
@@ -203,7 +205,7 @@ Deno.serve(async (req) => {
         weather ? `Today's weather: ${weather}.` : null,
         headlines.length ? `Today's news headlines: ${headlines.join(" | ")}.` : null,
         reminders.length ? `Today's reminders: ${reminders.join(", ")}.` : null,
-        "End by warmly asking if they'd like to do their check-in for today.",
+        `Don't end with a question. Instead close with a short, warm well-wish for the rest of the ${timeOfDay} (for example, "Hope you enjoy the rest of your ${timeOfDay}").`,
       ]
         .filter(Boolean)
         .join(" ");
