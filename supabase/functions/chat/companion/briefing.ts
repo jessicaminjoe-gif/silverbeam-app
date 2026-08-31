@@ -109,3 +109,43 @@ export async function fetchTodaysReminders(
     return [];
   }
 }
+
+// Same month/day matching as fetchTodaysReminders, but checked against each
+// of the next `days` calendar days (today included) instead of just today --
+// used by Chat's "My Reminders" quick prompt, which is explicitly about
+// what's coming up this week, not just today.
+export async function fetchUpcomingReminders(
+  userClient: { from: (table: string) => any },
+  seniorId: string,
+  days = 7
+): Promise<string[]> {
+  try {
+    const { data } = await userClient.from("reminders").select("title, recurrence, remind_on").eq("senior_id", seniorId);
+    const rows = (data as ReminderRow[]) ?? [];
+    const now = new Date();
+    const results: string[] = [];
+
+    for (const r of rows) {
+      if (r.recurrence === "daily") {
+        results.push(`${r.title} (every day)`);
+        continue;
+      }
+      if (!r.remind_on) continue;
+      const [, remindMonth, remindDay] = r.remind_on.split("-").map(Number);
+      for (let offset = 0; offset < days; offset++) {
+        const d = new Date(now);
+        d.setDate(d.getDate() + offset);
+        if (d.getMonth() + 1 === remindMonth && d.getDate() === remindDay) {
+          const when = offset === 0 ? "today" : offset === 1 ? "tomorrow" : d.toLocaleDateString("en-US", { weekday: "long" });
+          results.push(`${r.title} (${when})`);
+          break;
+        }
+      }
+    }
+
+    return results;
+  } catch (err) {
+    console.error("[briefing] fetchUpcomingReminders failed:", err);
+    return [];
+  }
+}

@@ -19,6 +19,13 @@ import { useCompanionSettings } from "@/hooks/useCompanionSettings";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
 import { useSession } from "@/state/useSession";
 import { colors } from "@/theme/colors";
+import type { QuickPrompt } from "@/ai/types";
+
+const QUICK_PROMPTS: { key: QuickPrompt; icon: keyof typeof Ionicons.glyphMap; label: string; text: string }[] = [
+  { key: "weather", icon: "partly-sunny", label: "Weather", text: "What's the weather today?" },
+  { key: "reminders", icon: "calendar", label: "My Reminders", text: "Do I have any reminders coming up this week?" },
+  { key: "news", icon: "newspaper", label: "Headlines", text: "What are today's top news headlines?" },
+];
 
 // The AI companion's own space, reached from Home's "Chat" button rather
 // than being the first thing the senior sees -- see home.tsx for the
@@ -39,6 +46,11 @@ export default function ChatScreen() {
     if (!text) return;
     setInput("");
     await sendMessage(text);
+    requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
+  }
+
+  async function handleQuickPrompt(prompt: (typeof QUICK_PROMPTS)[number]) {
+    await sendMessage(prompt.text, prompt.key);
     requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
   }
 
@@ -118,6 +130,22 @@ export default function ChatScreen() {
         />
       )}
 
+      <View style={styles.quickPromptRow}>
+        {QUICK_PROMPTS.map((prompt) => (
+          <Pressable
+            key={prompt.key}
+            style={styles.quickPromptButton}
+            onPress={() => handleQuickPrompt(prompt)}
+            disabled={sending}
+            accessibilityRole="button"
+            accessibilityLabel={prompt.text}
+          >
+            <Ionicons name={prompt.icon} size={20} color={colors.terracotta} />
+            <Text style={styles.quickPromptButtonText}>{prompt.label}</Text>
+          </Pressable>
+        ))}
+      </View>
+
       <View style={styles.inputRow}>
         <Pressable
           style={[styles.micButton, voice.state === "recording" && styles.micButtonRecording]}
@@ -174,13 +202,33 @@ const styles = StyleSheet.create({
   bubbleAssistant: { backgroundColor: colors.sageLight, alignSelf: "flex-start", paddingRight: 44 },
   bubbleText: { fontSize: 20, lineHeight: 28, color: colors.text },
   replayButton: { position: "absolute", right: 10, bottom: 10 },
+  quickPromptRow: {
+    flexDirection: "row",
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    backgroundColor: colors.cream,
+  },
+  quickPromptButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    borderWidth: 1,
+    borderColor: colors.terracotta,
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+  },
+  quickPromptButtonText: { fontSize: 13, fontWeight: "700", color: colors.terracotta },
   inputRow: {
     flexDirection: "row",
     alignItems: "flex-end",
     padding: 12,
     gap: 8,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
     backgroundColor: colors.cream,
   },
   micButton: {

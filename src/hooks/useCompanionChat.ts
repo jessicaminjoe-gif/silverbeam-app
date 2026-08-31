@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useSession } from "@/state/useSession";
 import { speak } from "@/lib/speech";
-import type { CompanionReply } from "@/ai/types";
+import type { CompanionReply, QuickPrompt } from "@/ai/types";
 
 export interface ChatEntry {
   id: string;
@@ -31,14 +31,14 @@ export function useCompanionChat(soundEnabled: boolean) {
   }, [profile?.id]);
 
   const sendMessage = useCallback(
-    async (text: string) => {
+    async (text: string, quickPrompt?: QuickPrompt) => {
       if (!profile || !text.trim()) return;
       const optimisticId = `local-${Date.now()}`;
       setMessages((prev) => [...prev, { id: optimisticId, role: "senior", content: text }]);
       setSending(true);
       try {
         const { data, error } = await supabase.functions.invoke<CompanionReply>("chat", {
-          body: { seniorId: profile.id, message: text },
+          body: { seniorId: profile.id, message: text, ...(quickPrompt ? { quickPrompt } : {}) },
         });
         if (error) throw error;
         if (data) {

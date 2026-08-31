@@ -132,6 +132,21 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Family can turn video calling off (see companion_settings) -- enforced
+    // here, not just by hiding the button client-side, so a stale client
+    // can't bypass it.
+    const { data: companionSettings } = await userClient
+      .from("companion_settings")
+      .select("video_call_enabled")
+      .eq("senior_id", user.id)
+      .maybeSingle();
+    if (companionSettings?.video_call_enabled === false) {
+      return new Response(JSON.stringify({ error: "Video calling is turned off right now" }), {
+        status: 403,
+        headers: { ...corsHeaders, "content-type": "application/json" },
+      });
+    }
+
     // Short-lived room, unique per call — simpler than trying to reuse a
     // long-lived room, and Daily auto-expires it.
     const roomName = `silverbeam-${user.id.slice(0, 8)}-${Date.now()}`;

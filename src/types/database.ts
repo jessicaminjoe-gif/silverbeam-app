@@ -87,6 +87,7 @@ export interface CompanionSettings {
   briefing_weather: boolean;
   briefing_news: boolean;
   briefing_reminders: boolean;
+  video_call_enabled: boolean;
   updated_at: string;
 }
 
@@ -111,12 +112,15 @@ export interface SharedMedia {
   created_at: string;
 }
 
+export type NoteReaction = "heart" | "thumbs_up" | "smile" | "laugh" | "sad";
+
 export interface FamilyNote {
   id: string;
   senior_id: string;
   sender_id: string;
   body: string;
   viewed_at: string | null;
+  reaction: NoteReaction | null;
   created_at: string;
 }
 

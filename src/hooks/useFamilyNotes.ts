@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import type { FamilyNote } from "@/types/database";
+import type { FamilyNote, NoteReaction } from "@/types/database";
 
 // Senior-side: mirrors useSharedMedia.ts's shape (unreadCount, markAllViewed)
 // minus the signed-URL step, since notes are plain text with no storage
@@ -34,5 +34,20 @@ export function useFamilyNotes(seniorId: string | undefined) {
     setNotes((prev) => prev.map((n) => (unviewedIds.includes(n.id) ? { ...n, viewed_at: new Date().toISOString() } : n)));
   }, [seniorId, notes]);
 
-  return { notes, unreadCount, loading, reload: load, markAllViewed };
+  // Tapping the already-selected reaction again clears it (pass null) --
+  // one reaction per note, not a toggleable multi-select.
+  const setReaction = useCallback(
+    async (noteId: string, reaction: NoteReaction | null) => {
+      const previous = notes.find((n) => n.id === noteId)?.reaction ?? null;
+      setNotes((prev) => prev.map((n) => (n.id === noteId ? { ...n, reaction } : n)));
+      const { error } = await supabase.from("family_notes").update({ reaction }).eq("id", noteId);
+      if (error) {
+        // Roll back on failure -- best-effort optimistic update.
+        setNotes((prev) => prev.map((n) => (n.id === noteId ? { ...n, reaction: previous } : n)));
+      }
+    },
+    [notes]
+  );
+
+  return { notes, unreadCount, loading, reload: load, markAllViewed, setReaction };
 }

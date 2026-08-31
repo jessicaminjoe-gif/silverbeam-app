@@ -89,6 +89,7 @@ export function SeniorContactSettings({ senior, onChanged }: Props) {
       briefing_weather: boolean;
       briefing_news: boolean;
       briefing_reminders: boolean;
+      video_call_enabled: boolean;
     }>
   ) {
     setSavingField(Object.keys(patch)[0]);
@@ -102,6 +103,7 @@ export function SeniorContactSettings({ senior, onChanged }: Props) {
       briefing_weather: settings.briefing_weather,
       briefing_news: settings.briefing_news,
       briefing_reminders: settings.briefing_reminders,
+      video_call_enabled: settings.video_call_enabled,
       ...patch,
     });
     setSavingField(null);
@@ -333,6 +335,14 @@ export function SeniorContactSettings({ senior, onChanged }: Props) {
             </Pressable>
           )}
         </View>
+      </Field>
+
+      <Field label="Video calling" hint="Turn off if video calls aren't a good fit right now -- hides the Video Call button for both of you">
+        <ToggleRow
+          label="Video calling enabled"
+          value={settings.video_call_enabled}
+          onChange={(value) => saveCompanionSettings({ video_call_enabled: value })}
+        />
       </Field>
 
       <Field label="Daily greeting" hint="What the companion offers when the app opens for the first time each day">

@@ -14,7 +14,7 @@
 import { createClient } from "npm:@supabase/supabase-js@^2.45.0";
 import { getProvider } from "./companion/config.ts";
 import { scanKeywords, combineEscalation } from "./companion/escalation.ts";
-import { getTimeOfDay, fetchWeather, fetchNewsHeadlines, fetchTodaysReminders } from "./companion/briefing.ts";
+import { getTimeOfDay, fetchWeather, fetchNewsHeadlines, fetchTodaysReminders, fetchUpcomingReminders } from "./companion/briefing.ts";
 import type { ChatRequestBody } from "./companion/CompanionProvider.ts";
 import type { EscalationResult } from "./companion/CompanionProvider.ts";
 
@@ -94,7 +94,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    const body = (await req.json()) as ChatRequestBody & { briefing?: boolean };
+    const body = (await req.json()) as ChatRequestBody & {
+      briefing?: boolean;
+      quickPrompt?: "weather" | "reminders" | "news";
+    };
     if ((!body?.message && !body?.briefing) || !body?.seniorId) {
       return new Response(JSON.stringify({ error: "message (or briefing) and seniorId are required" }), {
         status: 400,
@@ -193,7 +196,31 @@ Deno.serve(async (req) => {
     // open of the day, or just say hi again mid-conversation.
     const GREETING_PATTERN = /^\s*(hi+|hello+|hey+|hiya|howdy|good\s*(morning|afternoon|evening)|morning|afternoon|evening)\b/i;
     let greetingContext: string | undefined;
-    if (GREETING_PATTERN.test(body.message)) {
+
+    // Chat's default-prompt buttons (Weather / My Reminders / Headlines) --
+    // an explicit ask, so this fetches real data and answers regardless of
+    // the daily-briefing toggles (those only gate the passive auto-briefing).
+    if (body.quickPrompt === "weather") {
+      const weather = await fetchWeather(companionSettings?.location_zip ?? null);
+      greetingContext = weather
+        ? `The person is asking what today's weather is like. Here it is: ${weather}. Answer naturally and briefly using this -- don't end with a question.`
+        : "The person is asking about today's weather, but none is available (no location saved). Gently let them know and suggest their family can add a ZIP code in Settings. Don't end with a question.";
+    } else if (body.quickPrompt === "reminders") {
+      const upcoming = await fetchUpcomingReminders(userClient, user.id, 7);
+      greetingContext = upcoming.length
+        ? `The person is asking what reminders they have coming up this week. Here they are: ${upcoming.join(", ")}. Answer naturally and briefly using this list -- don't end with a question.`
+        : "The person is asking what reminders they have coming up this week. There are none right now -- let them know warmly. Don't end with a question.";
+    } else if (body.quickPrompt === "news") {
+      const headlines = await fetchNewsHeadlines(3);
+      greetingContext = headlines.length
+        ? `The person is asking for today's top news headlines. Here are three: ${headlines.join(" | ")}. Summarize them naturally and briefly -- don't end with a question.`
+        : "The person is asking for today's news headlines, but none could be fetched right now -- let them know gently. Don't end with a question.";
+    } else if (GREETING_PATTERN.test(body.message)) {
+      // A senior opening a chat turn with a greeting ("hi", "hello", "good
+      // morning", ...) gets the same weather/news/reminders content as the
+      // once-a-day auto-briefing, gated by the same Settings toggles — this
+      // covers the case where they greet the companion later than the first
+      // open of the day, or just say hi again mid-conversation.
       const timeOfDay = getTimeOfDay();
       const [weather, headlines, reminders] = await Promise.all([
         companionSettings?.briefing_weather ? fetchWeather(companionSettings.location_zip) : Promise.resolve(null),

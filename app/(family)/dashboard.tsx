@@ -3,6 +3,7 @@ import { View, Text, TextInput, StyleSheet, ActivityIndicator, Pressable, Alert,
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useActiveSenior } from "@/hooks/useActiveSenior";
+import { useCompanionSettings } from "@/hooks/useCompanionSettings";
 import { SeniorSwitcher } from "@/components/SeniorSwitcher";
 import { pickAndSharePhoto } from "@/lib/uploadPhoto";
 import { sendNoteToSenior } from "@/lib/sendNote";
@@ -15,6 +16,7 @@ const MAX_NOTE_LENGTH = 500;
 // so this stays a quick action screen, not a feed to scroll through.
 export default function DashboardScreen() {
   const { activeSenior, seniors, loading: loadingSeniors, setActiveSeniorId } = useActiveSenior();
+  const { settings } = useCompanionSettings(activeSenior?.seniorId);
   const [sendingPhoto, setSendingPhoto] = useState(false);
   const [noteModalOpen, setNoteModalOpen] = useState(false);
   const [noteText, setNoteText] = useState("");
@@ -73,13 +75,18 @@ export default function DashboardScreen() {
 
         <View style={styles.actionColumn}>
           <Pressable
-            style={styles.actionButton}
+            style={[styles.actionButton, !settings.video_call_enabled && styles.actionButtonDisabled]}
             onPress={() => router.push({ pathname: "/(family)/call-outbound", params: { seniorId: activeSenior.seniorId } })}
+            disabled={!settings.video_call_enabled}
             accessibilityRole="button"
-            accessibilityLabel={`Video call ${activeSenior.fullName}`}
+            accessibilityLabel={
+              settings.video_call_enabled ? `Video call ${activeSenior.fullName}` : "Video calling is turned off in Settings"
+            }
           >
-            <Ionicons name="videocam" size={28} color={colors.white} />
-            <Text style={styles.actionButtonText}>Video Call</Text>
+            <Ionicons name="videocam" size={28} color={settings.video_call_enabled ? colors.white : colors.textMuted} />
+            <Text style={[styles.actionButtonText, !settings.video_call_enabled && styles.actionButtonTextDisabled]}>
+              {settings.video_call_enabled ? "Video Call" : "Video Call Off"}
+            </Text>
           </Pressable>
           <Pressable
             style={styles.actionButton}
@@ -166,6 +173,8 @@ const styles = StyleSheet.create({
     minHeight: 64,
   },
   actionButtonText: { color: colors.white, fontSize: 18, fontWeight: "700" },
+  actionButtonDisabled: { backgroundColor: colors.sageLight, opacity: 0.7 },
+  actionButtonTextDisabled: { color: colors.textMuted },
   modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", alignItems: "center", justifyContent: "center", padding: 24 },
   modalCard: { backgroundColor: colors.white, borderRadius: 16, padding: 20, width: "100%", gap: 14 },
   modalTitle: { fontSize: 18, fontWeight: "700", color: colors.navy },

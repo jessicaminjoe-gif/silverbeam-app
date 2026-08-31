@@ -13,7 +13,15 @@ import { useSharedMedia, type SharedMediaItem } from "@/hooks/useSharedMedia";
 import { useFamilyNotes } from "@/hooks/useFamilyNotes";
 import { useSession } from "@/state/useSession";
 import { colors } from "@/theme/colors";
-import type { FamilyNote } from "@/types/database";
+import type { FamilyNote, NoteReaction } from "@/types/database";
+
+const REACTIONS: { key: NoteReaction; emoji: string; label: string }[] = [
+  { key: "heart", emoji: "❤️", label: "Heart" },
+  { key: "thumbs_up", emoji: "👍", label: "Thumbs up" },
+  { key: "smile", emoji: "😊", label: "Smiley face" },
+  { key: "laugh", emoji: "😂", label: "Laughing" },
+  { key: "sad", emoji: "😢", label: "Sad face" },
+];
 
 // expo export --platform web doesn't resolve local require()'d image
 // sources correctly in the static bundle — see (auth)/login.tsx for the
@@ -50,7 +58,13 @@ export default function SeniorHomeScreen() {
     reload: reloadPhotos,
     markAllViewed: markPhotosViewed,
   } = useSharedMedia(profile?.id);
-  const { notes, loading: loadingNotes, reload: reloadNotes, markAllViewed: markNotesViewed } = useFamilyNotes(profile?.id);
+  const {
+    notes,
+    loading: loadingNotes,
+    reload: reloadNotes,
+    markAllViewed: markNotesViewed,
+    setReaction,
+  } = useFamilyNotes(profile?.id);
   useDailyBriefing(profile?.id, soundEnabled);
 
   const seniorDisplayName = settings.senior_nickname || profile?.full_name?.split(" ")[0] || "there";
@@ -144,13 +158,16 @@ export default function SeniorHomeScreen() {
 
       <View style={[styles.topButtonRow, { minHeight: windowHeight * 0.33 }]}>
         <Pressable
-          style={styles.videoCallButton}
+          style={[styles.videoCallButton, !settings.video_call_enabled && styles.videoCallButtonDisabled]}
           onPress={() => router.push("/(senior)/call-picker")}
+          disabled={!settings.video_call_enabled}
           accessibilityRole="button"
-          accessibilityLabel="Video Call"
+          accessibilityLabel={settings.video_call_enabled ? "Video Call" : "Video Call, turned off"}
         >
-          <Ionicons name="videocam" size={48} color={colors.white} />
-          <Text style={styles.videoCallButtonText}>Video Call</Text>
+          <Ionicons name="videocam" size={48} color={settings.video_call_enabled ? colors.white : colors.textMuted} />
+          <Text style={[styles.videoCallButtonText, !settings.video_call_enabled && styles.videoCallButtonTextDisabled]}>
+            {settings.video_call_enabled ? "Video Call" : "Video Call\nTurned Off"}
+          </Text>
         </Pressable>
         <Pressable
           style={styles.photosButton}
@@ -164,6 +181,8 @@ export default function SeniorHomeScreen() {
         </Pressable>
       </View>
 
+      <Text style={styles.feedHeading}>Family Feed</Text>
+
       {loading ? (
         <ActivityIndicator style={{ marginTop: 40 }} size="large" color={colors.terracotta} />
       ) : (
@@ -171,7 +190,7 @@ export default function SeniorHomeScreen() {
           data={feed}
           keyExtractor={(item) => `${item.kind}-${item.id}`}
           contentContainerStyle={styles.feedList}
-          renderItem={({ item }) => <FeedCard item={item} senderLabel={senderLabel(item.senderId)} />}
+          renderItem={({ item }) => <FeedCard item={item} senderLabel={senderLabel(item.senderId)} onReact={setReaction} />}
           ListEmptyComponent={
             <Text style={styles.emptyText}>Nothing from family yet. When they send a photo or note, it'll show up here.</Text>
           }
@@ -202,7 +221,15 @@ export default function SeniorHomeScreen() {
   );
 }
 
-function FeedCard({ item, senderLabel }: { item: FeedItem; senderLabel: string }) {
+function FeedCard({
+  item,
+  senderLabel,
+  onReact,
+}: {
+  item: FeedItem;
+  senderLabel: string;
+  onReact: (noteId: string, reaction: NoteReaction | null) => void;
+}) {
   const timeLabel = new Date(item.createdAt).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 
   if (item.kind === "photo") {
@@ -224,6 +251,7 @@ function FeedCard({ item, senderLabel }: { item: FeedItem; senderLabel: string }
     );
   }
 
+  const currentReaction = item.item.reaction;
   return (
     <View style={styles.feedCard}>
       <View style={styles.feedCardHeader}>
@@ -232,6 +260,20 @@ function FeedCard({ item, senderLabel }: { item: FeedItem; senderLabel: string }
         {!item.viewed && <View style={styles.newDot} />}
       </View>
       <Text style={styles.feedNoteText}>{item.item.body}</Text>
+      <View style={styles.reactionRow}>
+        {REACTIONS.map((r) => (
+          <Pressable
+            key={r.key}
+            style={[styles.reactionButton, currentReaction === r.key && styles.reactionButtonSelected]}
+            onPress={() => onReact(item.id, currentReaction === r.key ? null : r.key)}
+            accessibilityRole="button"
+            accessibilityLabel={currentReaction === r.key ? `Remove ${r.label} reaction` : `React with ${r.label}`}
+            hitSlop={4}
+          >
+            <Text style={styles.reactionEmoji}>{r.emoji}</Text>
+          </Pressable>
+        ))}
+      </View>
     </View>
   );
 }
@@ -256,7 +298,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.terracotta,
     borderRadius: 18,
   },
-  videoCallButtonText: { fontSize: 22, fontWeight: "800", color: colors.white },
+  videoCallButtonText: { fontSize: 22, fontWeight: "800", color: colors.white, textAlign: "center" },
+  videoCallButtonDisabled: { backgroundColor: colors.sageLight, opacity: 0.7 },
+  videoCallButtonTextDisabled: { color: colors.textMuted },
   photosButton: {
     flex: 1,
     alignItems: "center",
@@ -275,6 +319,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: colors.danger,
   },
+  feedHeading: { fontSize: 20, fontWeight: "800", color: colors.navy, paddingHorizontal: 16, paddingBottom: 8 },
   feedList: { paddingHorizontal: 16, paddingBottom: 12, gap: 12, flexGrow: 1 },
   emptyText: { fontSize: 18, textAlign: "center", color: colors.textMuted, marginTop: 40, paddingHorizontal: 20 },
   feedCard: { backgroundColor: colors.white, borderRadius: 14, padding: 14, gap: 8 },
@@ -285,6 +330,19 @@ const styles = StyleSheet.create({
   feedPhoto: { width: "100%", aspectRatio: 4 / 3, borderRadius: 10, backgroundColor: colors.sageLight },
   feedCaption: { fontSize: 15, color: colors.text },
   feedNoteText: { fontSize: 17, lineHeight: 24, color: colors.text },
+  reactionRow: { flexDirection: "row", gap: 8, marginTop: 4 },
+  reactionButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.cream,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  reactionButtonSelected: { backgroundColor: colors.sageLight, borderColor: colors.sage },
+  reactionEmoji: { fontSize: 22 },
   actionRow: {
     flexDirection: "row",
     gap: 10,

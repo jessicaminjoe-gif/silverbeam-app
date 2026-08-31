@@ -20,6 +20,8 @@ export interface CompanionReply {
   escalation: EscalationResult;
 }
 
+export type QuickPrompt = "weather" | "reminders" | "news";
+
 export interface ChatRequestBody {
   seniorId: string;
   checkInId?: string;
@@ -29,4 +31,10 @@ export interface ChatRequestBody {
   // (chat/index.ts's briefing branch). Response is just { message }, no
   // escalation field.
   briefing?: boolean;
+  // Set alongside a real `message` when that message came from tapping one
+  // of Chat's default-prompt buttons rather than being typed -- tells the
+  // server to fetch and answer with real weather/reminders/news data for
+  // this one reply, regardless of the senior's daily-briefing toggles
+  // (this is an explicit ask, not the passive auto-briefing).
+  quickPrompt?: QuickPrompt;
 }

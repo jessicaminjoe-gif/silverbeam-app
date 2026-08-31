@@ -18,6 +18,7 @@ const DEFAULTS: Omit<CompanionSettings, "senior_id" | "updated_at"> = {
   briefing_weather: true,
   briefing_news: false,
   briefing_reminders: true,
+  video_call_enabled: true,
 };
 
 // Used by both the senior (reading their own settings) and family (reading
