@@ -89,6 +89,8 @@ export default function UpdatesScreen() {
         <View style={{ gap: 12 }}>
           <SeniorSwitcher activeSenior={activeSenior} seniors={seniors} onSwitch={setActiveSeniorId} />
 
+          <Text style={styles.heading}>Updates From {activeSenior.fullName}</Text>
+
           {activeEscalations.map((e) => (
             <Pressable
               key={e.id}
@@ -98,6 +100,7 @@ export default function UpdatesScreen() {
               <Text style={styles.alertText}>
                 {e.severity.toUpperCase()} alert — {e.trigger_reason ?? "possible concern"}. Tap for details.
               </Text>
+              <Text style={styles.alertDate}>{new Date(e.created_at).toLocaleString()}</Text>
             </Pressable>
           ))}
 
@@ -121,6 +124,7 @@ export default function UpdatesScreen() {
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, backgroundColor: colors.cream },
   list: { padding: 16, gap: 10, backgroundColor: colors.cream },
+  heading: { fontSize: 20, fontWeight: "700", color: colors.navy },
   subheading: { fontSize: 15, fontWeight: "600", color: colors.textMuted },
   emptyText: { fontSize: 16, textAlign: "center", color: colors.textMuted },
   checkInRow: {
@@ -138,4 +142,5 @@ const styles = StyleSheet.create({
   alertHigh: { backgroundColor: "#ffd6d6" },
   alertMedium: { backgroundColor: "#ffe8c2" },
   alertText: { fontSize: 15, fontWeight: "600", color: colors.navy },
+  alertDate: { fontSize: 12, color: colors.textMuted, marginTop: 4 },
 });
