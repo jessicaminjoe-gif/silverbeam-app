@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useState } from "react";
-import { View, Text, Image, Pressable, FlatList, StyleSheet, ActivityIndicator, Platform, useWindowDimensions } from "react-native";
+import { useCallback } from "react";
+import { View, Text, Image, Pressable, FlatList, StyleSheet, ActivityIndicator, Platform } from "react-native";
 import { router } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
@@ -8,20 +8,12 @@ import { supabase } from "@/lib/supabase";
 import { speak } from "@/lib/speech";
 import { useCompanionSettings } from "@/hooks/useCompanionSettings";
 import { useDailyBriefing } from "@/hooks/useDailyBriefing";
-import { useCallContacts, type CallContact } from "@/hooks/useCallContacts";
-import { useSharedMedia, type SharedMediaItem } from "@/hooks/useSharedMedia";
+import { useCallContacts } from "@/hooks/useCallContacts";
+import { useSharedMedia } from "@/hooks/useSharedMedia";
 import { useFamilyNotes } from "@/hooks/useFamilyNotes";
 import { useSession } from "@/state/useSession";
 import { colors } from "@/theme/colors";
-import type { FamilyNote, NoteReaction } from "@/types/database";
-
-const REACTIONS: { key: NoteReaction; emoji: string; label: string }[] = [
-  { key: "heart", emoji: "❤️", label: "Heart" },
-  { key: "thumbs_up", emoji: "👍", label: "Thumbs up" },
-  { key: "smile", emoji: "😊", label: "Smiley face" },
-  { key: "laugh", emoji: "😂", label: "Laughing" },
-  { key: "sad", emoji: "😢", label: "Sad face" },
-];
+import type { BoardTileKey } from "@/types/database";
 
 // expo export --platform web doesn't resolve local require()'d image
 // sources correctly in the static bundle — see (auth)/login.tsx for the
@@ -36,90 +28,56 @@ function getGreeting(): string {
   return "Good evening";
 }
 
-type FeedItem =
-  | { kind: "photo"; id: string; senderId: string; createdAt: string; viewed: boolean; item: SharedMediaItem }
-  | { kind: "note"; id: string; senderId: string; createdAt: string; viewed: boolean; item: FamilyNote };
+interface TileDef {
+  key: BoardTileKey;
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  bg: string;
+  fg: string;
+  route: string;
+}
 
-// Family-first home: the senior's first view of the app is their family --
-// who to call, and what family has recently sent -- with the AI companion
-// one tap away via the Chat button, not the default view. See chat.tsx for
-// where the conversation UI moved.
+// Fixed order and look for every possible tile -- family's board_tiles
+// setting (see SeniorContactSettings.tsx) just filters which of these
+// actually render, it doesn't reorder or restyle them.
+const TILE_DEFS: TileDef[] = [
+  { key: "call", label: "Let's Connect", icon: "videocam", bg: colors.terracotta, fg: colors.white, route: "/(senior)/call-picker" },
+  { key: "photos", label: "Photos", icon: "images", bg: colors.sageLight, fg: colors.navy, route: "/(senior)/photos" },
+  { key: "notes", label: "Love Notes", icon: "heart", bg: colors.peach, fg: colors.navy, route: "/(senior)/love-notes" },
+  { key: "checkin", label: "Check In", icon: "happy", bg: colors.sageLight, fg: colors.navy, route: "/(senior)/checkin" },
+  { key: "weather", label: "Weather", icon: "partly-sunny", bg: colors.navy, fg: colors.white, route: "/(senior)/weather" },
+  { key: "headlines", label: "Headlines", icon: "newspaper", bg: colors.peach, fg: colors.navy, route: "/(senior)/headlines" },
+  { key: "onThisDay", label: "On This Day", icon: "time", bg: colors.sage, fg: colors.white, route: "/(senior)/on-this-day" },
+];
+
+// The Beam Board: a grid of tiles for the things family and the senior do
+// most, with the AI companion as a smaller "Ask {name}" button below the
+// board rather than a tile itself -- see the brainstorm that led here.
 export default function SeniorHomeScreen() {
   const insets = useSafeAreaInsets();
-  const { height: windowHeight } = useWindowDimensions();
   const profile = useSession((s) => s.profile);
-  const [soundEnabled] = useState(true);
   const { settings } = useCompanionSettings(profile?.id);
-  const { contacts, loading: loadingContacts } = useCallContacts();
-  const {
-    items: photos,
-    unreadCount: unreadPhotoCount,
-    loading: loadingPhotos,
-    reload: reloadPhotos,
-    markAllViewed: markPhotosViewed,
-  } = useSharedMedia(profile?.id);
-  const {
-    notes,
-    loading: loadingNotes,
-    reload: reloadNotes,
-    markAllViewed: markNotesViewed,
-    setReaction,
-  } = useFamilyNotes(profile?.id);
-  useDailyBriefing(profile?.id, soundEnabled);
+  const { contacts } = useCallContacts();
+  const { unreadCount: unreadPhotoCount, reload: reloadPhotos } = useSharedMedia(profile?.id);
+  const { unreadCount: unreadNoteCount, reload: reloadNotes } = useFamilyNotes(profile?.id);
+  useDailyBriefing(profile?.id, true);
 
   const seniorDisplayName = settings.senior_nickname || profile?.full_name?.split(" ")[0] || "there";
 
-  const contactsById = useMemo(() => {
-    const map = new Map<string, CallContact>();
-    for (const c of contacts) map.set(c.familyMemberId, c);
-    return map;
-  }, [contacts]);
-
   function senderLabel(senderId: string): string {
-    const contact = contactsById.get(senderId);
+    const contact = contacts.find((c) => c.familyMemberId === senderId);
     return contact?.relationship || contact?.fullName || "Family";
   }
 
-  const feed: FeedItem[] = useMemo(() => {
-    const photoItems: FeedItem[] = photos.map((p) => ({
-      kind: "photo",
-      id: p.id,
-      senderId: p.sender_id,
-      createdAt: p.created_at,
-      viewed: !!p.viewed_at,
-      item: p,
-    }));
-    const noteItems: FeedItem[] = notes.map((n) => ({
-      kind: "note",
-      id: n.id,
-      senderId: n.sender_id,
-      createdAt: n.created_at,
-      viewed: !!n.viewed_at,
-      item: n,
-    }));
-    return [...photoItems, ...noteItems].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
-  }, [photos, notes]);
-
-  // Clears both badges the moment the senior actually looks at the feed,
-  // not just when new items happen to arrive. Both mark-viewed functions
-  // are recreated (via useCallback in their hooks) whenever their item
-  // list changes, so they're included here deliberately -- omitting them
-  // would freeze this effect's closure onto a stale, possibly-empty items
-  // array from an earlier render and silently stop marking anything read.
-  useFocusEffect(
-    useCallback(() => {
-      markPhotosViewed();
-      markNotesViewed();
-    }, [markPhotosViewed, markNotesViewed])
-  );
-
   // Announces new photos/notes the moment they arrive while the app is
-  // open (the push notification covers the app-closed case).
+  // open (the push notification covers the app-closed case); also keeps
+  // the tile badges current without needing the senior to back out and
+  // back in to this screen.
   useFocusEffect(
     useCallback(() => {
       if (!profile?.id) return;
       const channel = supabase
-        .channel(`family-feed:${profile.id}`)
+        .channel(`beam-board:${profile.id}`)
         .on(
           "postgres_changes",
           { event: "INSERT", schema: "public", table: "shared_media", filter: `senior_id=eq.${profile.id}` },
@@ -135,17 +93,18 @@ export default function SeniorHomeScreen() {
           (payload) => {
             reloadNotes();
             const senderId = (payload.new as { sender_id: string }).sender_id;
-            speak(`${senderLabel(senderId)} sent you a note!`);
+            speak(`${senderLabel(senderId)} sent you a love note!`);
           }
         )
         .subscribe();
       return () => {
         supabase.removeChannel(channel);
       };
-    }, [profile?.id, contactsById, reloadPhotos, reloadNotes])
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [profile?.id, contacts, reloadPhotos, reloadNotes])
   );
 
-  const loading = loadingContacts || loadingPhotos || loadingNotes;
+  const visibleTiles = TILE_DEFS.filter((t) => settings.board_tiles[t.key]);
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 12 }]}>
@@ -156,124 +115,40 @@ export default function SeniorHomeScreen() {
         </Text>
       </View>
 
-      <View style={[styles.topButtonRow, { minHeight: windowHeight * 0.33 }]}>
-        <Pressable
-          style={[styles.videoCallButton, !settings.video_call_enabled && styles.videoCallButtonDisabled]}
-          onPress={() => router.push("/(senior)/call-picker")}
-          disabled={!settings.video_call_enabled}
-          accessibilityRole="button"
-          accessibilityLabel={settings.video_call_enabled ? "Video Call" : "Video Call, turned off"}
-        >
-          <Ionicons name="videocam" size={48} color={settings.video_call_enabled ? colors.white : colors.textMuted} />
-          <Text style={[styles.videoCallButtonText, !settings.video_call_enabled && styles.videoCallButtonTextDisabled]}>
-            {settings.video_call_enabled ? "Video Call" : "Video Call\nTurned Off"}
-          </Text>
-        </Pressable>
-        <Pressable
-          style={styles.photosButton}
-          onPress={() => router.push("/(senior)/photos")}
-          accessibilityRole="button"
-          accessibilityLabel={unreadPhotoCount > 0 ? `Photos, ${unreadPhotoCount} new` : "Photos"}
-        >
-          <Ionicons name="images" size={48} color={colors.navy} />
-          <Text style={styles.photosButtonText}>Photos</Text>
-          {unreadPhotoCount > 0 && <View style={styles.photosButtonBadge} />}
-        </Pressable>
-      </View>
+      <FlatList
+        data={visibleTiles}
+        keyExtractor={(item) => item.key}
+        numColumns={2}
+        columnWrapperStyle={styles.row}
+        contentContainerStyle={styles.grid}
+        renderItem={({ item }) => {
+          const disabled = item.key === "call" && !settings.video_call_enabled;
+          const badge = item.key === "photos" ? unreadPhotoCount : item.key === "notes" ? unreadNoteCount : 0;
+          return (
+            <Pressable
+              style={[styles.tile, { backgroundColor: disabled ? colors.sageLight : item.bg }, disabled && styles.tileDisabled]}
+              onPress={() => router.push(item.route as never)}
+              disabled={disabled}
+              accessibilityRole="button"
+              accessibilityLabel={disabled ? `${item.label}, turned off` : badge > 0 ? `${item.label}, ${badge} new` : item.label}
+            >
+              <Ionicons name={item.icon} size={40} color={disabled ? colors.textMuted : item.fg} />
+              <Text style={[styles.tileLabel, { color: disabled ? colors.textMuted : item.fg }]}>{item.label}</Text>
+              {badge > 0 && <View style={styles.tileBadge} />}
+            </Pressable>
+          );
+        }}
+      />
 
-      <Text style={styles.feedHeading}>Family Feed</Text>
-
-      {loading ? (
-        <ActivityIndicator style={{ marginTop: 40 }} size="large" color={colors.terracotta} />
-      ) : (
-        <FlatList
-          data={feed}
-          keyExtractor={(item) => `${item.kind}-${item.id}`}
-          contentContainerStyle={styles.feedList}
-          renderItem={({ item }) => <FeedCard item={item} senderLabel={senderLabel(item.senderId)} onReact={setReaction} />}
-          ListEmptyComponent={
-            <Text style={styles.emptyText}>Nothing from family yet. When they send a photo or note, it'll show up here.</Text>
-          }
-        />
-      )}
-
-      <View style={[styles.actionRow, { paddingBottom: insets.bottom + 12 }]}>
-        <Pressable
-          style={styles.checkinButton}
-          onPress={() => router.push("/(senior)/checkin")}
-          accessibilityRole="button"
-          accessibilityLabel="Daily Check In"
-        >
-          <Ionicons name="happy" size={26} color={colors.navy} />
-          <Text style={styles.checkinButtonText}>Check In</Text>
-        </Pressable>
-        <Pressable
-          style={styles.chatButton}
-          onPress={() => router.push("/(senior)/chat")}
-          accessibilityRole="button"
-          accessibilityLabel={`Chat with ${settings.companion_name}`}
-        >
-          <Ionicons name="chatbubble-ellipses" size={26} color={colors.white} />
-          <Text style={styles.chatButtonText}>Chat with {settings.companion_name}</Text>
-        </Pressable>
-      </View>
-    </View>
-  );
-}
-
-function FeedCard({
-  item,
-  senderLabel,
-  onReact,
-}: {
-  item: FeedItem;
-  senderLabel: string;
-  onReact: (noteId: string, reaction: NoteReaction | null) => void;
-}) {
-  const timeLabel = new Date(item.createdAt).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
-
-  if (item.kind === "photo") {
-    return (
       <Pressable
-        style={styles.feedCard}
-        onPress={() => router.push("/(senior)/photos")}
+        style={[styles.askButton, { marginBottom: insets.bottom + 12 }]}
+        onPress={() => router.push("/(senior)/chat")}
         accessibilityRole="button"
-        accessibilityLabel={`Photo from ${senderLabel}`}
+        accessibilityLabel={`Ask ${settings.companion_name}`}
       >
-        <View style={styles.feedCardHeader}>
-          <Text style={styles.feedSender}>{senderLabel}</Text>
-          <Text style={styles.feedTime}>{timeLabel}</Text>
-          {!item.viewed && <View style={styles.newDot} />}
-        </View>
-        {item.item.signedUrl && <Image source={{ uri: item.item.signedUrl }} style={styles.feedPhoto} />}
-        {item.item.caption && <Text style={styles.feedCaption}>{item.item.caption}</Text>}
+        <Ionicons name="chatbubble-ellipses-outline" size={22} color={colors.terracotta} />
+        <Text style={styles.askButtonText}>Ask {settings.companion_name}</Text>
       </Pressable>
-    );
-  }
-
-  const currentReaction = item.item.reaction;
-  return (
-    <View style={styles.feedCard}>
-      <View style={styles.feedCardHeader}>
-        <Text style={styles.feedSender}>{senderLabel}</Text>
-        <Text style={styles.feedTime}>{timeLabel}</Text>
-        {!item.viewed && <View style={styles.newDot} />}
-      </View>
-      <Text style={styles.feedNoteText}>{item.item.body}</Text>
-      <View style={styles.reactionRow}>
-        {REACTIONS.map((r) => (
-          <Pressable
-            key={r.key}
-            style={[styles.reactionButton, currentReaction === r.key && styles.reactionButtonSelected]}
-            onPress={() => onReact(item.id, currentReaction === r.key ? null : r.key)}
-            accessibilityRole="button"
-            accessibilityLabel={currentReaction === r.key ? `Remove ${r.label} reaction` : `React with ${r.label}`}
-            hitSlop={4}
-          >
-            <Text style={styles.reactionEmoji}>{r.emoji}</Text>
-          </Pressable>
-        ))}
-      </View>
     </View>
   );
 }
@@ -289,28 +164,19 @@ const styles = StyleSheet.create({
   },
   logoIcon: { width: 44, height: 44, borderRadius: 12 },
   greeting: { flex: 1, fontSize: 24, fontWeight: "700", color: colors.navy },
-  topButtonRow: { flexDirection: "row", gap: 12, paddingHorizontal: 16, paddingBottom: 12 },
-  videoCallButton: {
+  grid: { paddingHorizontal: 16, paddingBottom: 12, gap: 14, flexGrow: 1 },
+  row: { gap: 14 },
+  tile: {
     flex: 1,
+    aspectRatio: 1.1,
+    borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
-    backgroundColor: colors.terracotta,
-    borderRadius: 18,
   },
-  videoCallButtonText: { fontSize: 22, fontWeight: "800", color: colors.white, textAlign: "center" },
-  videoCallButtonDisabled: { backgroundColor: colors.sageLight, opacity: 0.7 },
-  videoCallButtonTextDisabled: { color: colors.textMuted },
-  photosButton: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 10,
-    backgroundColor: colors.sageLight,
-    borderRadius: 18,
-  },
-  photosButtonText: { fontSize: 22, fontWeight: "800", color: colors.navy },
-  photosButtonBadge: {
+  tileDisabled: { opacity: 0.7 },
+  tileLabel: { fontSize: 18, fontWeight: "800", textAlign: "center" },
+  tileBadge: {
     position: "absolute",
     top: 14,
     right: 14,
@@ -319,63 +185,16 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: colors.danger,
   },
-  feedHeading: { fontSize: 20, fontWeight: "800", color: colors.navy, paddingHorizontal: 16, paddingBottom: 8 },
-  feedList: { paddingHorizontal: 16, paddingBottom: 12, gap: 12, flexGrow: 1 },
-  emptyText: { fontSize: 18, textAlign: "center", color: colors.textMuted, marginTop: 40, paddingHorizontal: 20 },
-  feedCard: { backgroundColor: colors.white, borderRadius: 14, padding: 14, gap: 8 },
-  feedCardHeader: { flexDirection: "row", alignItems: "center", gap: 8 },
-  feedSender: { fontSize: 15, fontWeight: "700", color: colors.navy },
-  feedTime: { flex: 1, fontSize: 12, color: colors.textMuted },
-  newDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.danger },
-  feedPhoto: { width: "100%", aspectRatio: 4 / 3, borderRadius: 10, backgroundColor: colors.sageLight },
-  feedCaption: { fontSize: 15, color: colors.text },
-  feedNoteText: { fontSize: 17, lineHeight: 24, color: colors.text },
-  reactionRow: { flexDirection: "row", gap: 8, marginTop: 4 },
-  reactionButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.cream,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  reactionButtonSelected: { backgroundColor: colors.sageLight, borderColor: colors.sage },
-  reactionEmoji: { fontSize: 22 },
-  actionRow: {
-    flexDirection: "row",
-    gap: 10,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    backgroundColor: colors.cream,
-  },
-  checkinButton: {
-    flex: 1,
+  askButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    backgroundColor: colors.sageLight,
+    borderWidth: 1.5,
+    borderColor: colors.terracotta,
     borderRadius: 12,
     paddingVertical: 14,
-    paddingHorizontal: 16,
-    minHeight: 56,
+    marginHorizontal: 16,
   },
-  checkinButtonText: { fontSize: 17, fontWeight: "700", color: colors.navy },
-  chatButton: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    backgroundColor: colors.terracotta,
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    minHeight: 56,
-  },
-  chatButtonText: { fontSize: 17, fontWeight: "700", color: colors.white },
+  askButtonText: { fontSize: 17, fontWeight: "700", color: colors.terracotta },
 });

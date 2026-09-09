@@ -72,6 +72,36 @@ export async function fetchNewsHeadlines(limit = 3): Promise<string[]> {
   }
 }
 
+// Wikipedia's public "on this day" feed -- free, keyless, just wants a
+// descriptive User-Agent per Wikimedia's API etiquette policy (same
+// courtesy-header requirement as NWS above). "selected" is Wikipedia's own
+// curated/notable subset for the day, which reads better for a glance-tile
+// than the full (much longer, much more obscure) "events" list.
+const WIKIPEDIA_USER_AGENT = "SilverBeamCompanionApp/1.0 (beta, no contact email on file yet)";
+
+export async function fetchOnThisDayFact(date = new Date()): Promise<string | null> {
+  try {
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const res = await fetch(`https://en.wikipedia.org/api/rest_v1/feed/onthisday/selected/${month}/${day}`, {
+      headers: { "User-Agent": WIKIPEDIA_USER_AGENT },
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { selected?: { text: string; year?: number }[] };
+    const events = data.selected ?? [];
+    if (!events.length) return null;
+    // Picks one at random each time rather than always the first (which
+    // tends to skew toward the most ancient/least relatable entry) --
+    // fine for a tile that's checked once in a while, not something a
+    // user compares call-to-call for consistency.
+    const pick = events[Math.floor(Math.random() * events.length)];
+    return pick.year ? `In ${pick.year}, ${pick.text}` : pick.text;
+  } catch (err) {
+    console.error("[briefing] fetchOnThisDayFact failed:", err);
+    return null;
+  }
+}
+
 interface ReminderRow {
   title: string;
   recurrence: "yearly" | "daily" | "once";

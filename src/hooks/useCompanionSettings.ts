@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import type { CompanionSettings } from "@/types/database";
+import type { BoardTiles, CompanionSettings } from "@/types/database";
 
 const DEFAULT_CHECK_IN_OPTIONS = [
   { label: "Great", emoji: "😊" },
@@ -8,6 +8,18 @@ const DEFAULT_CHECK_IN_OPTIONS = [
   { label: "Not great", emoji: "😕" },
   { label: "Rough day", emoji: "😣" },
 ];
+
+// Every tile on by default -- matches the DB column's default (0016) so a
+// senior with no companion_settings row yet still sees the full board.
+export const DEFAULT_BOARD_TILES: BoardTiles = {
+  call: true,
+  photos: true,
+  notes: true,
+  checkin: true,
+  weather: true,
+  headlines: true,
+  onThisDay: true,
+};
 
 const DEFAULTS: Omit<CompanionSettings, "senior_id" | "updated_at"> = {
   companion_name: "SilverBeam",
@@ -19,6 +31,7 @@ const DEFAULTS: Omit<CompanionSettings, "senior_id" | "updated_at"> = {
   briefing_news: false,
   briefing_reminders: true,
   video_call_enabled: true,
+  board_tiles: DEFAULT_BOARD_TILES,
 };
 
 // Used by both the senior (reading their own settings) and family (reading

@@ -77,6 +77,10 @@ export interface CallEvent {
   caller_label: string | null;
 }
 
+export type BoardTileKey = "call" | "photos" | "notes" | "checkin" | "weather" | "headlines" | "onThisDay";
+
+export type BoardTiles = Record<BoardTileKey, boolean>;
+
 export interface CompanionSettings {
   senior_id: string;
   companion_name: string;
@@ -88,6 +92,7 @@ export interface CompanionSettings {
   briefing_news: boolean;
   briefing_reminders: boolean;
   video_call_enabled: boolean;
+  board_tiles: BoardTiles;
   updated_at: string;
 }
 

@@ -24,6 +24,10 @@ export default function SeniorLayout() {
       <Stack.Screen name="call" options={{ title: "Video Call" }} />
       <Stack.Screen name="incoming-call" options={{ title: "Incoming Call", headerShown: false }} />
       <Stack.Screen name="photos" options={{ title: "Photos from Family" }} />
+      <Stack.Screen name="love-notes" options={{ title: "Love Notes", headerShown: false }} />
+      <Stack.Screen name="weather" options={{ title: "Weather", headerShown: false }} />
+      <Stack.Screen name="headlines" options={{ title: "Headlines", headerShown: false }} />
+      <Stack.Screen name="on-this-day" options={{ title: "On This Day", headerShown: false }} />
     </Stack>
   );
 }

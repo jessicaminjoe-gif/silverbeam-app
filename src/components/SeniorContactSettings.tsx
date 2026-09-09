@@ -9,9 +9,18 @@ import { useCompanionSettings } from "@/hooks/useCompanionSettings";
 import { useReminders } from "@/hooks/useReminders";
 import { colors } from "@/theme/colors";
 import type { LinkedSenior } from "@/hooks/useLinkedSeniors";
-import type { CheckInOption, ReminderRecurrence } from "@/types/database";
+import type { BoardTileKey, BoardTiles, CheckInOption, ReminderRecurrence } from "@/types/database";
 
 const MAX_CHECK_IN_OPTIONS = 5;
+const BOARD_TILE_OPTIONS: { key: BoardTileKey; label: string }[] = [
+  { key: "call", label: "Let's Connect (video call)" },
+  { key: "photos", label: "Photos" },
+  { key: "notes", label: "Love Notes" },
+  { key: "checkin", label: "Check In" },
+  { key: "weather", label: "Weather" },
+  { key: "headlines", label: "Headlines" },
+  { key: "onThisDay", label: "On This Day" },
+];
 const RECURRENCE_OPTIONS: { value: ReminderRecurrence; label: string }[] = [
   { value: "once", label: "One time" },
   { value: "yearly", label: "Every year" },
@@ -90,6 +99,7 @@ export function SeniorContactSettings({ senior, onChanged }: Props) {
       briefing_news: boolean;
       briefing_reminders: boolean;
       video_call_enabled: boolean;
+      board_tiles: BoardTiles;
     }>
   ) {
     setSavingField(Object.keys(patch)[0]);
@@ -104,6 +114,7 @@ export function SeniorContactSettings({ senior, onChanged }: Props) {
       briefing_news: settings.briefing_news,
       briefing_reminders: settings.briefing_reminders,
       video_call_enabled: settings.video_call_enabled,
+      board_tiles: settings.board_tiles,
       ...patch,
     });
     setSavingField(null);
@@ -136,6 +147,15 @@ export function SeniorContactSettings({ senior, onChanged }: Props) {
     setNewReminderTitle("");
     setNewReminderDate("");
     setNewReminderRecurrence("once");
+  }
+
+  function toggleBoardTile(key: BoardTileKey, value: boolean) {
+    const nextTiles = { ...settings.board_tiles, [key]: value };
+    if (!value && !Object.values(nextTiles).some(Boolean)) {
+      Alert.alert("Keep at least one", "At least one tile needs to stay on so the board isn't empty.");
+      return;
+    }
+    saveCompanionSettings({ board_tiles: nextTiles });
   }
 
   function updateCheckInOption(index: number, patch: Partial<CheckInOption>) {
@@ -343,6 +363,19 @@ export function SeniorContactSettings({ senior, onChanged }: Props) {
           value={settings.video_call_enabled}
           onChange={(value) => saveCompanionSettings({ video_call_enabled: value })}
         />
+      </Field>
+
+      <Field label="Beam Board tiles" hint="Choose which tiles show up on the home screen">
+        <View style={{ gap: 10 }}>
+          {BOARD_TILE_OPTIONS.map((opt) => (
+            <ToggleRow
+              key={opt.key}
+              label={opt.label}
+              value={settings.board_tiles[opt.key]}
+              onChange={(value) => toggleBoardTile(opt.key, value)}
+            />
+          ))}
+        </View>
       </Field>
 
       <Field label="Daily greeting" hint="What the companion offers when the app opens for the first time each day">
