@@ -8,13 +8,13 @@ import { useFamilyNotes } from "@/hooks/useFamilyNotes";
 import { useCallContacts, type CallContact } from "@/hooks/useCallContacts";
 import { useSession } from "@/state/useSession";
 import { colors } from "@/theme/colors";
-import { NOTE_REACTIONS } from "@/lib/noteReactions";
+import { NOTE_REACTIONS, QUICK_REPLIES } from "@/lib/noteReactions";
 import type { FamilyNote, NoteReaction } from "@/types/database";
 
 export default function LoveNotesScreen() {
   const insets = useSafeAreaInsets();
   const profile = useSession((s) => s.profile);
-  const { notes, loading, markAllViewed, setReaction } = useFamilyNotes(profile?.id);
+  const { notes, loading, markAllViewed, setReaction, setReplyText } = useFamilyNotes(profile?.id);
   const { contacts } = useCallContacts();
 
   const contactsById = useMemo(() => {
@@ -52,7 +52,9 @@ export default function LoveNotesScreen() {
           data={notes}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
-          renderItem={({ item }) => <NoteCard note={item} senderLabel={senderLabel(item.sender_id)} onReact={setReaction} />}
+          renderItem={({ item }) => (
+            <NoteCard note={item} senderLabel={senderLabel(item.sender_id)} onReact={setReaction} onQuickReply={setReplyText} />
+          )}
           ListEmptyComponent={<Text style={styles.emptyText}>No notes from family yet.</Text>}
         />
       )}
@@ -64,10 +66,12 @@ function NoteCard({
   note,
   senderLabel,
   onReact,
+  onQuickReply,
 }: {
   note: FamilyNote;
   senderLabel: string;
   onReact: (noteId: string, reaction: NoteReaction | null) => void;
+  onQuickReply: (noteId: string, replyText: string | null) => void;
 }) {
   const timeLabel = new Date(note.created_at).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 
@@ -90,6 +94,19 @@ function NoteCard({
             hitSlop={4}
           >
             <Text style={styles.reactionEmoji}>{r.emoji}</Text>
+          </Pressable>
+        ))}
+      </View>
+      <View style={styles.quickReplyRow}>
+        {QUICK_REPLIES.map((text) => (
+          <Pressable
+            key={text}
+            style={[styles.quickReplyButton, note.reply_text === text && styles.quickReplyButtonSelected]}
+            onPress={() => onQuickReply(note.id, note.reply_text === text ? null : text)}
+            accessibilityRole="button"
+            accessibilityLabel={note.reply_text === text ? `Remove reply "${text}"` : `Reply "${text}"`}
+          >
+            <Text style={[styles.quickReplyText, note.reply_text === text && styles.quickReplyTextSelected]}>{text}</Text>
           </Pressable>
         ))}
       </View>
@@ -122,4 +139,15 @@ const styles = StyleSheet.create({
   },
   reactionButtonSelected: { backgroundColor: colors.sageLight, borderColor: colors.sage },
   reactionEmoji: { fontSize: 22 },
+  quickReplyRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  quickReplyButton: {
+    borderWidth: 1,
+    borderColor: colors.terracotta,
+    borderRadius: 18,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+  },
+  quickReplyButtonSelected: { backgroundColor: colors.terracotta },
+  quickReplyText: { fontSize: 14, fontWeight: "600", color: colors.terracotta },
+  quickReplyTextSelected: { color: colors.white },
 });

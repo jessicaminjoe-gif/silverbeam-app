@@ -49,5 +49,20 @@ export function useFamilyNotes(seniorId: string | undefined) {
     [notes]
   );
 
-  return { notes, unreadCount, loading, reload: load, markAllViewed, setReaction };
+  // Tapping the already-selected quick reply again clears it (pass null) --
+  // same one-at-a-time pattern as setReaction, just a separate column so a
+  // note can carry both an emoji and a text reply at once.
+  const setReplyText = useCallback(
+    async (noteId: string, replyText: string | null) => {
+      const previous = notes.find((n) => n.id === noteId)?.reply_text ?? null;
+      setNotes((prev) => prev.map((n) => (n.id === noteId ? { ...n, reply_text: replyText } : n)));
+      const { error } = await supabase.from("family_notes").update({ reply_text: replyText }).eq("id", noteId);
+      if (error) {
+        setNotes((prev) => prev.map((n) => (n.id === noteId ? { ...n, reply_text: previous } : n)));
+      }
+    },
+    [notes]
+  );
+
+  return { notes, unreadCount, loading, reload: load, markAllViewed, setReaction, setReplyText };
 }

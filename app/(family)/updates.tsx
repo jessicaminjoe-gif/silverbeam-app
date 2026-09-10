@@ -125,12 +125,13 @@ export default function UpdatesScreen() {
                       {note.body}
                     </Text>
                     <Text style={styles.date}>{new Date(note.created_at).toLocaleString()}</Text>
+                    {note.reply_text && <Text style={styles.noteReplyText}>"{note.reply_text}"</Text>}
                   </View>
                   {note.reaction ? (
                     <Text style={styles.noteReactionEmoji}>{NOTE_REACTION_EMOJI[note.reaction]}</Text>
-                  ) : (
-                    <Text style={styles.noteReactionPending}>No reaction yet</Text>
-                  )}
+                  ) : !note.reply_text ? (
+                    <Text style={styles.noteReactionPending}>No reply yet</Text>
+                  ) : null}
                 </View>
               ))}
             </View>
@@ -184,6 +185,7 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   noteBody: { fontSize: 15, color: colors.text },
+  noteReplyText: { fontSize: 13, color: colors.terracotta, fontStyle: "italic", marginTop: 4 },
   noteReactionEmoji: { fontSize: 26 },
   noteReactionPending: { fontSize: 12, color: colors.textMuted, fontStyle: "italic" },
 });

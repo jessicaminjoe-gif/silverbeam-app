@@ -14,3 +14,7 @@ export const NOTE_REACTIONS: { key: NoteReaction; emoji: string; label: string }
 export const NOTE_REACTION_EMOJI: Record<NoteReaction, string> = Object.fromEntries(
   NOTE_REACTIONS.map((r) => [r.key, r.emoji])
 ) as Record<NoteReaction, string>;
+
+// Canned one-tap text replies, next to the emoji row -- kept short and
+// generic enough to fit any note without needing to type.
+export const QUICK_REPLIES = ["Thank you", "That's so nice", "Love you too!"];

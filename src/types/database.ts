@@ -126,6 +126,7 @@ export interface FamilyNote {
   body: string;
   viewed_at: string | null;
   reaction: NoteReaction | null;
+  reply_text: string | null;
   created_at: string;
 }
 
