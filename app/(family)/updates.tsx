@@ -5,8 +5,11 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useActiveSenior } from "@/hooks/useActiveSenior";
 import { SeniorSwitcher } from "@/components/SeniorSwitcher";
 import { colors } from "@/theme/colors";
-import type { CheckIn, EscalationEvent } from "@/types/database";
+import { NOTE_REACTION_EMOJI } from "@/lib/noteReactions";
+import type { CheckIn, EscalationEvent, FamilyNote } from "@/types/database";
 import { supabase } from "@/lib/supabase";
+
+const RECENT_NOTES_LIMIT = 10;
 
 const MOOD_EMOJI: Record<string, string> = {
   great: "😊",
@@ -22,12 +25,13 @@ export default function UpdatesScreen() {
   const { activeSenior, seniors, loading: loadingSeniors, setActiveSeniorId } = useActiveSenior();
   const [checkIns, setCheckIns] = useState<CheckIn[]>([]);
   const [activeEscalations, setActiveEscalations] = useState<EscalationEvent[]>([]);
+  const [recentNotes, setRecentNotes] = useState<FamilyNote[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     if (!activeSenior) return;
-    const [{ data: checkInData }, { data: escalationData }] = await Promise.all([
+    const [{ data: checkInData }, { data: escalationData }, { data: noteData }] = await Promise.all([
       supabase
         .from("check_ins")
         .select("*")
@@ -40,9 +44,16 @@ export default function UpdatesScreen() {
         .eq("senior_id", activeSenior.seniorId)
         .eq("resolved", false)
         .order("created_at", { ascending: false }),
+      supabase
+        .from("family_notes")
+        .select("*")
+        .eq("senior_id", activeSenior.seniorId)
+        .order("created_at", { ascending: false })
+        .limit(RECENT_NOTES_LIMIT),
     ]);
     setCheckIns((checkInData as CheckIn[]) ?? []);
     setActiveEscalations((escalationData as EscalationEvent[]) ?? []);
+    setRecentNotes((noteData as FamilyNote[]) ?? []);
     setLoading(false);
   }, [activeSenior?.seniorId]);
 
@@ -104,6 +115,27 @@ export default function UpdatesScreen() {
             </Pressable>
           ))}
 
+          {recentNotes.length > 0 && (
+            <View style={{ gap: 8 }}>
+              <Text style={styles.subheading}>Love Notes</Text>
+              {recentNotes.map((note) => (
+                <View key={note.id} style={styles.noteRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.noteBody} numberOfLines={2}>
+                      {note.body}
+                    </Text>
+                    <Text style={styles.date}>{new Date(note.created_at).toLocaleString()}</Text>
+                  </View>
+                  {note.reaction ? (
+                    <Text style={styles.noteReactionEmoji}>{NOTE_REACTION_EMOJI[note.reaction]}</Text>
+                  ) : (
+                    <Text style={styles.noteReactionPending}>No reaction yet</Text>
+                  )}
+                </View>
+              ))}
+            </View>
+          )}
+
           <Text style={styles.subheading}>Check-ins</Text>
         </View>
       }
@@ -143,4 +175,15 @@ const styles = StyleSheet.create({
   alertMedium: { backgroundColor: "#ffe8c2" },
   alertText: { fontSize: 15, fontWeight: "600", color: colors.navy },
   alertDate: { fontSize: 12, color: colors.textMuted, marginTop: 4 },
+  noteRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    padding: 14,
+  },
+  noteBody: { fontSize: 15, color: colors.text },
+  noteReactionEmoji: { fontSize: 26 },
+  noteReactionPending: { fontSize: 12, color: colors.textMuted, fontStyle: "italic" },
 });

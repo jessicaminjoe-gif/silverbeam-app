@@ -8,15 +8,8 @@ import { useFamilyNotes } from "@/hooks/useFamilyNotes";
 import { useCallContacts, type CallContact } from "@/hooks/useCallContacts";
 import { useSession } from "@/state/useSession";
 import { colors } from "@/theme/colors";
+import { NOTE_REACTIONS } from "@/lib/noteReactions";
 import type { FamilyNote, NoteReaction } from "@/types/database";
-
-const REACTIONS: { key: NoteReaction; emoji: string; label: string }[] = [
-  { key: "heart", emoji: "❤️", label: "Heart" },
-  { key: "thumbs_up", emoji: "👍", label: "Thumbs up" },
-  { key: "smile", emoji: "😊", label: "Smiley face" },
-  { key: "laugh", emoji: "😂", label: "Laughing" },
-  { key: "sad", emoji: "😢", label: "Sad face" },
-];
 
 export default function LoveNotesScreen() {
   const insets = useSafeAreaInsets();
@@ -87,7 +80,7 @@ function NoteCard({
       </View>
       <Text style={styles.noteText}>{note.body}</Text>
       <View style={styles.reactionRow}>
-        {REACTIONS.map((r) => (
+        {NOTE_REACTIONS.map((r) => (
           <Pressable
             key={r.key}
             style={[styles.reactionButton, note.reaction === r.key && styles.reactionButtonSelected]}
