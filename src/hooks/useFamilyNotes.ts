@@ -2,11 +2,18 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import type { FamilyNote, NoteReaction } from "@/types/database";
 
-// Senior-side: mirrors useSharedMedia.ts's shape (unreadCount, markAllViewed)
-// minus the signed-URL step, since notes are plain text with no storage
-// object behind them.
+export interface FamilyNoteItem extends FamilyNote {
+  // Non-null only for voice notes -- see migration 0020. Minted in a
+  // single batched call per load, same approach as useSharedMedia.ts,
+  // since the "voice-notes" bucket is private.
+  audioSignedUrl: string | null;
+}
+
+const SIGNED_URL_EXPIRES_IN = 60 * 60; // 1 hour, plenty for one viewing session
+
+// Senior-side: mirrors useSharedMedia.ts's shape (unreadCount, markAllViewed).
 export function useFamilyNotes(seniorId: string | undefined) {
-  const [notes, setNotes] = useState<FamilyNote[]>([]);
+  const [notes, setNotes] = useState<FamilyNoteItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -16,7 +23,16 @@ export function useFamilyNotes(seniorId: string | undefined) {
       .select("*")
       .eq("senior_id", seniorId)
       .order("created_at", { ascending: false });
-    setNotes((data as FamilyNote[]) ?? []);
+    const rows = (data as FamilyNote[]) ?? [];
+
+    const audioPaths = rows.map((n) => n.audio_path).filter((p): p is string => !!p);
+    let signedByPath = new Map<string, string>();
+    if (audioPaths.length) {
+      const { data: signed } = await supabase.storage.from("voice-notes").createSignedUrls(audioPaths, SIGNED_URL_EXPIRES_IN);
+      signedByPath = new Map((signed ?? []).map((s, i) => [audioPaths[i], s.signedUrl]));
+    }
+
+    setNotes(rows.map((n) => ({ ...n, audioSignedUrl: n.audio_path ? (signedByPath.get(n.audio_path) ?? null) : null })));
     setLoading(false);
   }, [seniorId]);
 

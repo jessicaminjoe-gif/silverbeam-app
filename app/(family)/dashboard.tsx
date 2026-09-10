@@ -4,10 +4,11 @@ import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useActiveSenior } from "@/hooks/useActiveSenior";
 import { useCompanionSettings } from "@/hooks/useCompanionSettings";
+import { useVoiceNoteRecorder } from "@/hooks/useVoiceNoteRecorder";
 import { SeniorSwitcher } from "@/components/SeniorSwitcher";
 import { RedeemInviteForm } from "@/components/RedeemInviteForm";
 import { pickAndSharePhoto } from "@/lib/uploadPhoto";
-import { sendNoteToSenior } from "@/lib/sendNote";
+import { sendNoteToSenior, sendVoiceNoteToSenior } from "@/lib/sendNote";
 import { colors } from "@/theme/colors";
 
 const MAX_NOTE_LENGTH = 500;
@@ -22,6 +23,7 @@ export default function DashboardScreen() {
   const [noteModalOpen, setNoteModalOpen] = useState(false);
   const [noteText, setNoteText] = useState("");
   const [sendingNote, setSendingNote] = useState(false);
+  const recorder = useVoiceNoteRecorder();
 
   async function handleSendPhoto() {
     if (!activeSenior) return;
@@ -36,16 +38,35 @@ export default function DashboardScreen() {
     }
   }
 
+  function closeNoteModal() {
+    setNoteModalOpen(false);
+    setNoteText("");
+    recorder.reset();
+  }
+
   async function handleSendNote() {
     if (!activeSenior || !noteText.trim()) return;
     setSendingNote(true);
     try {
       await sendNoteToSenior(activeSenior.seniorId, noteText.trim());
-      setNoteModalOpen(false);
-      setNoteText("");
+      closeNoteModal();
       Alert.alert("Sent!", `${activeSenior.fullName} will be notified.`);
-    } catch {
-      Alert.alert("Couldn't send note", "Please try again.");
+    } catch (err) {
+      Alert.alert("Couldn't send note", err instanceof Error ? err.message : "Please try again.");
+    } finally {
+      setSendingNote(false);
+    }
+  }
+
+  async function handleSendVoiceNote() {
+    if (!activeSenior || !recorder.uri) return;
+    setSendingNote(true);
+    try {
+      const transcript = await sendVoiceNoteToSenior(activeSenior.seniorId, recorder.uri);
+      closeNoteModal();
+      Alert.alert("Sent!", `${activeSenior.fullName} will be notified. Heard: "${transcript}"`);
+    } catch (err) {
+      Alert.alert("Couldn't send voice note", err instanceof Error ? err.message : "Please try again.");
     } finally {
       setSendingNote(false);
     }
@@ -113,42 +134,86 @@ export default function DashboardScreen() {
         </View>
       </View>
 
-      <Modal visible={noteModalOpen} transparent animationType="fade" onRequestClose={() => setNoteModalOpen(false)}>
+      <Modal visible={noteModalOpen} transparent animationType="fade" onRequestClose={closeNoteModal}>
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Send {activeSenior?.fullName} a note</Text>
-            <TextInput
-              style={styles.modalInput}
-              value={noteText}
-              onChangeText={setNoteText}
-              placeholder="What would you like to say?"
-              multiline
-              maxLength={MAX_NOTE_LENGTH}
-              autoFocus
-              accessibilityLabel="Note text"
-            />
-            <View style={styles.modalButtonRow}>
-              <Pressable
-                style={[styles.modalButton, styles.modalCancelButton]}
-                onPress={() => {
-                  setNoteModalOpen(false);
-                  setNoteText("");
-                }}
-                accessibilityRole="button"
-                accessibilityLabel="Cancel"
-              >
-                <Text style={styles.modalCancelButtonText}>Cancel</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.modalButton, styles.modalSendButton]}
-                onPress={handleSendNote}
-                disabled={sendingNote || !noteText.trim()}
-                accessibilityRole="button"
-                accessibilityLabel="Send note"
-              >
-                {sendingNote ? <ActivityIndicator color={colors.white} size="small" /> : <Text style={styles.modalSendButtonText}>Send</Text>}
-              </Pressable>
-            </View>
+
+            {recorder.state === "recorded" ? (
+              <>
+                <Text style={styles.voiceNoteReadyText}>Voice note ready to send</Text>
+                <View style={styles.modalButtonRow}>
+                  <Pressable style={[styles.modalButton, styles.modalCancelButton]} onPress={recorder.playPreview} accessibilityRole="button" accessibilityLabel="Play back recording">
+                    <Ionicons name="play" size={16} color={colors.navy} />
+                    <Text style={styles.modalCancelButtonText}>Play</Text>
+                  </Pressable>
+                  <Pressable style={[styles.modalButton, styles.modalCancelButton]} onPress={recorder.reset} accessibilityRole="button" accessibilityLabel="Re-record">
+                    <Text style={styles.modalCancelButtonText}>Re-record</Text>
+                  </Pressable>
+                </View>
+                <View style={styles.modalButtonRow}>
+                  <Pressable style={[styles.modalButton, styles.modalCancelButton]} onPress={closeNoteModal} accessibilityRole="button" accessibilityLabel="Cancel">
+                    <Text style={styles.modalCancelButtonText}>Cancel</Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.modalButton, styles.modalSendButton]}
+                    onPress={handleSendVoiceNote}
+                    disabled={sendingNote}
+                    accessibilityRole="button"
+                    accessibilityLabel="Send voice note"
+                  >
+                    {sendingNote ? <ActivityIndicator color={colors.white} size="small" /> : <Text style={styles.modalSendButtonText}>Send</Text>}
+                  </Pressable>
+                </View>
+              </>
+            ) : recorder.state === "recording" ? (
+              <>
+                <View style={styles.recordingRow}>
+                  <View style={styles.recordingDot} />
+                  <Text style={styles.voiceNoteReadyText}>Recording...</Text>
+                </View>
+                <Pressable style={[styles.modalButton, styles.modalSendButton]} onPress={recorder.stopRecording} accessibilityRole="button" accessibilityLabel="Stop recording">
+                  <Ionicons name="stop" size={18} color={colors.white} />
+                  <Text style={styles.modalSendButtonText}>Stop</Text>
+                </Pressable>
+              </>
+            ) : (
+              <>
+                <TextInput
+                  style={styles.modalInput}
+                  value={noteText}
+                  onChangeText={setNoteText}
+                  placeholder="What would you like to say?"
+                  multiline
+                  maxLength={MAX_NOTE_LENGTH}
+                  autoFocus
+                  accessibilityLabel="Note text"
+                />
+                <Pressable
+                  style={styles.recordButton}
+                  onPress={recorder.startRecording}
+                  accessibilityRole="button"
+                  accessibilityLabel="Record a voice note instead"
+                >
+                  <Ionicons name="mic" size={18} color={colors.terracotta} />
+                  <Text style={styles.recordButtonText}>Or record a voice note</Text>
+                </Pressable>
+                <View style={styles.modalButtonRow}>
+                  <Pressable style={[styles.modalButton, styles.modalCancelButton]} onPress={closeNoteModal} accessibilityRole="button" accessibilityLabel="Cancel">
+                    <Text style={styles.modalCancelButtonText}>Cancel</Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.modalButton, styles.modalSendButton]}
+                    onPress={handleSendNote}
+                    disabled={sendingNote || !noteText.trim()}
+                    accessibilityRole="button"
+                    accessibilityLabel="Send note"
+                  >
+                    {sendingNote ? <ActivityIndicator color={colors.white} size="small" /> : <Text style={styles.modalSendButtonText}>Send</Text>}
+                  </Pressable>
+                </View>
+              </>
+            )}
           </View>
         </View>
       </Modal>
@@ -189,9 +254,32 @@ const styles = StyleSheet.create({
     backgroundColor: colors.cream,
   },
   modalButtonRow: { flexDirection: "row", gap: 10, justifyContent: "flex-end" },
-  modalButton: { borderRadius: 10, paddingVertical: 10, paddingHorizontal: 20, minWidth: 90, alignItems: "center" },
+  modalButton: {
+    flexDirection: "row",
+    gap: 6,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    minWidth: 90,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   modalCancelButton: { backgroundColor: colors.sageLight },
   modalCancelButtonText: { color: colors.navy, fontSize: 15, fontWeight: "600" },
   modalSendButton: { backgroundColor: colors.terracotta },
   modalSendButtonText: { color: colors.white, fontSize: 15, fontWeight: "700" },
+  recordButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderWidth: 1,
+    borderColor: colors.terracotta,
+    borderRadius: 10,
+    paddingVertical: 10,
+  },
+  recordButtonText: { color: colors.terracotta, fontSize: 14, fontWeight: "700" },
+  voiceNoteReadyText: { fontSize: 16, color: colors.text, textAlign: "center" },
+  recordingRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, paddingVertical: 8 },
+  recordingDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: colors.danger },
 });

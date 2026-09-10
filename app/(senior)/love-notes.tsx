@@ -1,15 +1,16 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { View, Text, Pressable, FlatList, StyleSheet, ActivityIndicator } from "react-native";
 import { router } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
+import { Audio } from "expo-av";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useFamilyNotes } from "@/hooks/useFamilyNotes";
+import { useFamilyNotes, type FamilyNoteItem } from "@/hooks/useFamilyNotes";
 import { useCallContacts, type CallContact } from "@/hooks/useCallContacts";
 import { useSession } from "@/state/useSession";
 import { colors } from "@/theme/colors";
 import { NOTE_REACTIONS, QUICK_REPLIES } from "@/lib/noteReactions";
-import type { FamilyNote, NoteReaction } from "@/types/database";
+import type { NoteReaction } from "@/types/database";
 
 export default function LoveNotesScreen() {
   const insets = useSafeAreaInsets();
@@ -68,20 +69,57 @@ function NoteCard({
   onReact,
   onQuickReply,
 }: {
-  note: FamilyNote;
+  note: FamilyNoteItem;
   senderLabel: string;
   onReact: (noteId: string, reaction: NoteReaction | null) => void;
   onQuickReply: (noteId: string, replyText: string | null) => void;
 }) {
   const timeLabel = new Date(note.created_at).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+  const [playing, setPlaying] = useState(false);
+  const soundRef = useRef<Audio.Sound | null>(null);
+
+  async function handlePlay() {
+    if (!note.audioSignedUrl) return;
+    if (soundRef.current) {
+      await soundRef.current.unloadAsync().catch(() => {});
+      soundRef.current = null;
+    }
+    setPlaying(true);
+    const { sound } = await Audio.Sound.createAsync({ uri: note.audioSignedUrl }, { shouldPlay: true });
+    soundRef.current = sound;
+    sound.setOnPlaybackStatusUpdate((status) => {
+      if (status.isLoaded && status.didJustFinish) {
+        sound.unloadAsync().catch(() => {});
+        soundRef.current = null;
+        setPlaying(false);
+      }
+    });
+  }
 
   return (
     <View style={styles.card}>
       <View style={styles.cardHeader}>
         <Text style={styles.sender}>{senderLabel}</Text>
+        {note.audio_path && <Ionicons name="mic" size={14} color={colors.terracotta} />}
         <Text style={styles.time}>{timeLabel}</Text>
         {!note.viewed_at && <View style={styles.newDot} />}
       </View>
+      {note.audio_path && (
+        <Pressable
+          style={styles.playButton}
+          onPress={handlePlay}
+          disabled={playing || !note.audioSignedUrl}
+          accessibilityRole="button"
+          accessibilityLabel="Play voice note"
+        >
+          {playing ? (
+            <ActivityIndicator size="small" color={colors.white} />
+          ) : (
+            <Ionicons name="play" size={18} color={colors.white} />
+          )}
+          <Text style={styles.playButtonText}>Play</Text>
+        </Pressable>
+      )}
       <Text style={styles.noteText}>{note.body}</Text>
       <View style={styles.reactionRow}>
         {NOTE_REACTIONS.map((r) => (
@@ -126,6 +164,17 @@ const styles = StyleSheet.create({
   time: { flex: 1, fontSize: 12, color: colors.textMuted },
   newDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.danger },
   noteText: { fontSize: 18, lineHeight: 25, color: colors.text },
+  playButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 8,
+    backgroundColor: colors.terracotta,
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  playButtonText: { color: colors.white, fontSize: 14, fontWeight: "700" },
   reactionRow: { flexDirection: "row", gap: 8, marginTop: 2 },
   reactionButton: {
     width: 44,

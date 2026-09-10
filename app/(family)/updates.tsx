@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { View, Text, FlatList, StyleSheet, ActivityIndicator, Pressable, RefreshControl } from "react-native";
 import { router } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
+import { Ionicons } from "@expo/vector-icons";
 import { useActiveSenior } from "@/hooks/useActiveSenior";
 import { SeniorSwitcher } from "@/components/SeniorSwitcher";
 import { RedeemInviteForm } from "@/components/RedeemInviteForm";
@@ -120,9 +121,12 @@ export default function UpdatesScreen() {
               {recentNotes.map((note) => (
                 <View key={note.id} style={styles.noteRow}>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.noteBody} numberOfLines={2}>
-                      {note.body}
-                    </Text>
+                    <View style={styles.noteBodyRow}>
+                      {note.audio_path && <Ionicons name="mic" size={13} color={colors.terracotta} />}
+                      <Text style={styles.noteBody} numberOfLines={2}>
+                        {note.body}
+                      </Text>
+                    </View>
                     <Text style={styles.date}>{new Date(note.created_at).toLocaleString()}</Text>
                     {note.reply_text && <Text style={styles.noteReplyText}>"{note.reply_text}"</Text>}
                   </View>
@@ -183,7 +187,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 14,
   },
-  noteBody: { fontSize: 15, color: colors.text },
+  noteBodyRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  noteBody: { fontSize: 15, color: colors.text, flexShrink: 1 },
   noteReplyText: { fontSize: 13, color: colors.terracotta, fontStyle: "italic", marginTop: 4 },
   noteReactionEmoji: { fontSize: 26 },
   noteReactionPending: { fontSize: 12, color: colors.textMuted, fontStyle: "italic" },

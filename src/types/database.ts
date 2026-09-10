@@ -124,6 +124,7 @@ export interface FamilyNote {
   senior_id: string;
   sender_id: string;
   body: string;
+  audio_path: string | null;
   viewed_at: string | null;
   reaction: NoteReaction | null;
   reply_text: string | null;
