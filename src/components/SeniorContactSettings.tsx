@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { View, Text, Image, Pressable, TextInput, Switch, StyleSheet, ActivityIndicator, Alert } from "react-native";
+import { View, Text, Image, Pressable, TextInput, Switch, StyleSheet, ActivityIndicator, Alert, Modal, Share } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { supabase } from "@/lib/supabase";
 import { pickAndUploadAvatar } from "@/lib/uploadAvatar";
@@ -7,6 +7,7 @@ import { speak } from "@/lib/speech";
 import { VOICE_OPTIONS, VOICE_PREVIEW_TEXT } from "@/lib/voiceOptions";
 import { useCompanionSettings, MAX_BOARD_TILES } from "@/hooks/useCompanionSettings";
 import { useReminders } from "@/hooks/useReminders";
+import { createInvite } from "@/lib/familyInvites";
 import { colors } from "@/theme/colors";
 import type { LinkedSenior } from "@/hooks/useLinkedSeniors";
 import type { BoardTileKey, BoardTiles, CheckInOption, ReminderRecurrence } from "@/types/database";
@@ -63,6 +64,10 @@ export function SeniorContactSettings({ senior, onChanged }: Props) {
   const [newReminderRecurrence, setNewReminderRecurrence] = useState<ReminderRecurrence>("once");
   const [newReminderDate, setNewReminderDate] = useState("");
   const [addingReminder, setAddingReminder] = useState(false);
+  const [inviteModalOpen, setInviteModalOpen] = useState(false);
+  const [inviteRelationship, setInviteRelationship] = useState("");
+  const [generatingInvite, setGeneratingInvite] = useState(false);
+  const [inviteResult, setInviteResult] = useState<{ code: string; expiresAt: string } | null>(null);
 
   // The voice IS the name -- see voiceOptions.ts. Falls back to the first
   // option's name if voiceId somehow doesn't match any (shouldn't happen
@@ -191,6 +196,32 @@ export function SeniorContactSettings({ senior, onChanged }: Props) {
     }
   }
 
+  function openInviteModal() {
+    setInviteRelationship("");
+    setInviteResult(null);
+    setInviteModalOpen(true);
+  }
+
+  async function handleGenerateInvite() {
+    setGeneratingInvite(true);
+    try {
+      const result = await createInvite(senior.seniorId, inviteRelationship.trim() || undefined);
+      setInviteResult(result);
+    } catch {
+      Alert.alert("Couldn't create invite", "Please try again.");
+    } finally {
+      setGeneratingInvite(false);
+    }
+  }
+
+  function handleShareInvite() {
+    if (!inviteResult) return;
+    const expiresLabel = new Date(inviteResult.expiresAt).toLocaleDateString();
+    Share.share({
+      message: `Join me on SilverBeam to stay connected with ${senior.fullName}! Download the app, create a family account, then enter this invite code: ${inviteResult.code} (good until ${expiresLabel}).`,
+    });
+  }
+
   function handleRemove() {
     Alert.alert(
       "Remove this connection?",
@@ -229,6 +260,7 @@ export function SeniorContactSettings({ senior, onChanged }: Props) {
   }
 
   return (
+    <>
     <View style={styles.card}>
       <View style={styles.header}>
         <Pressable onPress={handleChangeSeniorAvatar} disabled={uploadingAvatar} accessibilityRole="button" accessibilityLabel={`Change ${senior.fullName}'s photo`}>
@@ -263,6 +295,11 @@ export function SeniorContactSettings({ senior, onChanged }: Props) {
       <Text style={styles.seniorIdText} selectable>
         Senior ID: {senior.seniorId}
       </Text>
+
+      <Pressable style={styles.inviteButton} onPress={openInviteModal} accessibilityRole="button" accessibilityLabel={`Invite another family member to connect with ${senior.fullName}`}>
+        <Ionicons name="person-add" size={18} color={colors.terracotta} />
+        <Text style={styles.inviteButtonText}>Invite another family member</Text>
+      </Pressable>
 
       <Field label="Your relationship" hint='Shows on your call bubble, e.g. "Son", "Daughter", "Neighbor"'>
         <TextInput
@@ -498,6 +535,60 @@ export function SeniorContactSettings({ senior, onChanged }: Props) {
         </View>
       )}
     </View>
+
+    <Modal visible={inviteModalOpen} transparent animationType="fade" onRequestClose={() => setInviteModalOpen(false)}>
+      <View style={styles.modalBackdrop}>
+        <View style={styles.modalCard}>
+          {inviteResult ? (
+            <>
+              <Text style={styles.modalTitle}>Invite ready</Text>
+              <Text style={styles.inviteHint}>Share this code -- it works for 7 days and can only be used once.</Text>
+              <Text style={styles.inviteCode} selectable>
+                {inviteResult.code}
+              </Text>
+              <Pressable style={styles.modalButton} onPress={handleShareInvite} accessibilityRole="button" accessibilityLabel="Share invite code">
+                <Ionicons name="share-outline" size={18} color={colors.white} />
+                <Text style={styles.modalButtonText}>Share</Text>
+              </Pressable>
+              <Pressable onPress={() => setInviteModalOpen(false)} accessibilityRole="button" accessibilityLabel="Close">
+                <Text style={styles.modalCancelText}>Done</Text>
+              </Pressable>
+            </>
+          ) : (
+            <>
+              <Text style={styles.modalTitle}>Invite another family member</Text>
+              <Text style={styles.inviteHint}>
+                They'll download SilverBeam, create a family account, then enter the code you send them to connect to {senior.fullName}.
+              </Text>
+              <TextInput
+                style={styles.input}
+                value={inviteRelationship}
+                onChangeText={setInviteRelationship}
+                placeholder={`Their relationship to ${senior.fullName.split(" ")[0]} (optional)`}
+                accessibilityLabel="Their relationship"
+              />
+              <Pressable
+                style={styles.modalButton}
+                onPress={handleGenerateInvite}
+                disabled={generatingInvite}
+                accessibilityRole="button"
+                accessibilityLabel="Generate invite code"
+              >
+                {generatingInvite ? (
+                  <ActivityIndicator size="small" color={colors.white} />
+                ) : (
+                  <Text style={styles.modalButtonText}>Generate Code</Text>
+                )}
+              </Pressable>
+              <Pressable onPress={() => setInviteModalOpen(false)} accessibilityRole="button" accessibilityLabel="Cancel">
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </Pressable>
+            </>
+          )}
+        </View>
+      </View>
+    </Modal>
+    </>
   );
 }
 
@@ -617,4 +708,34 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   addReminderButtonText: { color: colors.white, fontSize: 14, fontWeight: "700" },
+  inviteButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderWidth: 1,
+    borderColor: colors.terracotta,
+    borderRadius: 10,
+    paddingVertical: 10,
+    marginTop: -6,
+  },
+  inviteButtonText: { fontSize: 14, fontWeight: "700", color: colors.terracotta },
+  modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", alignItems: "center", justifyContent: "center", padding: 24 },
+  modalCard: { backgroundColor: colors.white, borderRadius: 16, padding: 20, width: "100%", gap: 14 },
+  modalTitle: { fontSize: 18, fontWeight: "700", color: colors.navy, textAlign: "center" },
+  inviteHint: { fontSize: 13, color: colors.textMuted, textAlign: "center" },
+  inviteCode: { fontSize: 36, fontWeight: "800", letterSpacing: 4, color: colors.terracotta, marginVertical: 6, alignSelf: "center" },
+  modalButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: colors.terracotta,
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 28,
+    alignSelf: "stretch",
+  },
+  modalButtonText: { color: colors.white, fontSize: 16, fontWeight: "700" },
+  modalCancelText: { color: colors.textMuted, fontSize: 14, fontWeight: "600", marginTop: 4, alignSelf: "center" },
 });

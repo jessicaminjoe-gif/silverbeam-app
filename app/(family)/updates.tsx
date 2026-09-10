@@ -4,6 +4,7 @@ import { router } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { useActiveSenior } from "@/hooks/useActiveSenior";
 import { SeniorSwitcher } from "@/components/SeniorSwitcher";
+import { RedeemInviteForm } from "@/components/RedeemInviteForm";
 import { colors } from "@/theme/colors";
 import { NOTE_REACTION_EMOJI } from "@/lib/noteReactions";
 import type { CheckIn, EscalationEvent, FamilyNote } from "@/types/database";
@@ -22,7 +23,7 @@ const MOOD_EMOJI: Record<string, string> = {
 // check-ins -- split out of Home (dashboard.tsx) so that screen stays a
 // quick-action pad rather than a feed to scroll through.
 export default function UpdatesScreen() {
-  const { activeSenior, seniors, loading: loadingSeniors, setActiveSeniorId } = useActiveSenior();
+  const { activeSenior, seniors, loading: loadingSeniors, setActiveSeniorId, reload: reloadSeniors } = useActiveSenior();
   const [checkIns, setCheckIns] = useState<CheckIn[]>([]);
   const [activeEscalations, setActiveEscalations] = useState<EscalationEvent[]>([]);
   const [recentNotes, setRecentNotes] = useState<FamilyNote[]>([]);
@@ -83,9 +84,7 @@ export default function UpdatesScreen() {
   if (!activeSenior) {
     return (
       <View style={styles.center}>
-        <Text style={styles.emptyText}>
-          You're not linked to a SilverBeam senior account yet. Reach out to the SilverBeam team to get connected.
-        </Text>
+        <RedeemInviteForm onConnected={reloadSeniors} />
       </View>
     );
   }

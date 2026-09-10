@@ -5,6 +5,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { supabase } from "@/lib/supabase";
 import { useActiveSenior } from "@/hooks/useActiveSenior";
 import { SeniorSwitcher } from "@/components/SeniorSwitcher";
+import { RedeemInviteForm } from "@/components/RedeemInviteForm";
 import { colors } from "@/theme/colors";
 import type { CallEvent, CheckIn, EscalationEvent } from "@/types/database";
 
@@ -21,7 +22,7 @@ type HistoryItem =
   | { kind: "call"; id: string; at: string; data: CallEvent };
 
 export default function SeniorProfileScreen() {
-  const { activeSenior, seniors, loading: loadingSeniors, setActiveSeniorId } = useActiveSenior();
+  const { activeSenior, seniors, loading: loadingSeniors, setActiveSeniorId, reload: reloadSeniors } = useActiveSenior();
   const [items, setItems] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -71,7 +72,7 @@ export default function SeniorProfileScreen() {
   if (!activeSenior) {
     return (
       <View style={styles.center}>
-        <Text style={styles.emptyText}>No linked senior account yet.</Text>
+        <RedeemInviteForm onConnected={reloadSeniors} />
       </View>
     );
   }

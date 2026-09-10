@@ -130,6 +130,18 @@ export interface FamilyNote {
   created_at: string;
 }
 
+export interface FamilyInvite {
+  id: string;
+  senior_id: string;
+  created_by: string;
+  code: string;
+  relationship: string | null;
+  expires_at: string;
+  used_at: string | null;
+  used_by: string | null;
+  created_at: string;
+}
+
 export interface PushToken {
   id: string;
   profile_id: string;
@@ -210,6 +222,12 @@ export interface Database {
         Row: Reminder;
         Insert: Partial<Reminder> & { senior_id: string; title: string; recurrence: ReminderRecurrence };
         Update: Partial<Reminder>;
+        Relationships: [];
+      };
+      family_invites: {
+        Row: FamilyInvite;
+        Insert: Partial<FamilyInvite> & { senior_id: string; created_by: string; code: string; expires_at: string };
+        Update: Partial<FamilyInvite>;
         Relationships: [];
       };
     };

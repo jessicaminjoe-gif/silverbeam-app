@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useActiveSenior } from "@/hooks/useActiveSenior";
 import { useCompanionSettings } from "@/hooks/useCompanionSettings";
 import { SeniorSwitcher } from "@/components/SeniorSwitcher";
+import { RedeemInviteForm } from "@/components/RedeemInviteForm";
 import { pickAndSharePhoto } from "@/lib/uploadPhoto";
 import { sendNoteToSenior } from "@/lib/sendNote";
 import { colors } from "@/theme/colors";
@@ -15,7 +16,7 @@ const MAX_NOTE_LENGTH = 500;
 // note. Check-ins and alerts moved to their own Updates tab (updates.tsx)
 // so this stays a quick action screen, not a feed to scroll through.
 export default function DashboardScreen() {
-  const { activeSenior, seniors, loading: loadingSeniors, setActiveSeniorId } = useActiveSenior();
+  const { activeSenior, seniors, loading: loadingSeniors, setActiveSeniorId, reload } = useActiveSenior();
   const { settings } = useCompanionSettings(activeSenior?.seniorId);
   const [sendingPhoto, setSendingPhoto] = useState(false);
   const [noteModalOpen, setNoteModalOpen] = useState(false);
@@ -61,9 +62,7 @@ export default function DashboardScreen() {
   if (!activeSenior) {
     return (
       <View style={styles.center}>
-        <Text style={styles.emptyText}>
-          You're not linked to a SilverBeam senior account yet. Reach out to the SilverBeam team to get connected.
-        </Text>
+        <RedeemInviteForm onConnected={reload} />
       </View>
     );
   }
@@ -160,7 +159,6 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, backgroundColor: colors.cream },
   screen: { flex: 1, backgroundColor: colors.cream, padding: 16, gap: 16 },
-  emptyText: { fontSize: 16, textAlign: "center", color: colors.textMuted },
   actionColumn: { gap: 12, marginTop: 8 },
   actionButton: {
     flexDirection: "row",
