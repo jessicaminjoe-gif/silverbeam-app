@@ -141,13 +141,15 @@ Deno.serve(async (req) => {
       // never shown to the senior (only the assistant's reply is saved/
       // displayed), it just tells the companion what to fold into its own
       // greeting, in its own voice, rather than reading a fixed template.
+      const closingWellWish = timeOfDay === "evening" ? "Enjoy the rest of your evening" : "Enjoy the rest of your day";
       const instructionParts = [
         `It's currently the ${timeOfDay}. Greet me warmly with "Good ${timeOfDay}" (or similar) and my name to start our day.`,
         weather ? `Today's weather where I live: ${weather}. Mention it briefly and naturally, not as a formal report.` : null,
         headlines.length ? `Today's top news headlines: ${headlines.join(" | ")}. Briefly mention one or two you think I'd find interesting.` : null,
         reminders.length ? `Here's what's on my calendar today: ${reminders.join(", ")}. Remind me warmly.` : null,
+        "Somewhere in there, warmly mention that my Beam Board is ready whenever I want to look at photos, call family, check the weather, or whatever else is on it -- don't list every tile, just invite me to it in passing.",
         "Keep the whole thing brief and warm, like you're catching up with me for the day -- a few sentences, not a checklist.",
-        `Don't end with a question. Instead close with a short, warm well-wish for the rest of the ${timeOfDay} (for example, "Hope you enjoy the rest of your ${timeOfDay}").`,
+        `Don't end with a question. Instead close with a short, warm well-wish (for example, "${closingWellWish}").`,
       ].filter(Boolean);
 
       const provider = getProvider();

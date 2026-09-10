@@ -39,15 +39,19 @@ interface TileDef {
 
 // Fixed order and look for every possible tile -- family's board_tiles
 // setting (see SeniorContactSettings.tsx) just filters which of these
-// actually render, it doesn't reorder or restyle them.
+// actually render, it doesn't reorder or restyle them. Let's Connect,
+// Check In, and Weather each get their own distinct dark tone; the
+// content-browsing tiles (Photos, Love Notes, Headlines, On This Day)
+// share the lighter peach so the board reads as "act on it" (bold) vs.
+// "look at it" (soft) rather than seven arbitrary colors.
 const TILE_DEFS: TileDef[] = [
   { key: "call", label: "Let's Connect", icon: "videocam", bg: colors.terracotta, fg: colors.white, route: "/(senior)/call-picker" },
-  { key: "photos", label: "Photos", icon: "images", bg: colors.sageLight, fg: colors.navy, route: "/(senior)/photos" },
+  { key: "photos", label: "Photos", icon: "images", bg: colors.peach, fg: colors.navy, route: "/(senior)/photos" },
   { key: "notes", label: "Love Notes", icon: "heart", bg: colors.peach, fg: colors.navy, route: "/(senior)/love-notes" },
-  { key: "checkin", label: "Check In", icon: "happy", bg: colors.sageLight, fg: colors.navy, route: "/(senior)/checkin" },
+  { key: "checkin", label: "Check In", icon: "happy", bg: colors.sage, fg: colors.white, route: "/(senior)/checkin" },
   { key: "weather", label: "Weather", icon: "partly-sunny", bg: colors.navy, fg: colors.white, route: "/(senior)/weather" },
   { key: "headlines", label: "Headlines", icon: "newspaper", bg: colors.peach, fg: colors.navy, route: "/(senior)/headlines" },
-  { key: "onThisDay", label: "On This Day", icon: "time", bg: colors.sage, fg: colors.white, route: "/(senior)/on-this-day" },
+  { key: "onThisDay", label: "On This Day", icon: "time", bg: colors.peach, fg: colors.navy, route: "/(senior)/on-this-day" },
 ];
 
 // The Beam Board: a grid of tiles for the things family and the senior do

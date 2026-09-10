@@ -8,7 +8,7 @@
 // Deploy: supabase functions deploy board-content
 
 import { createClient } from "npm:@supabase/supabase-js@^2.45.0";
-import { fetchWeather, fetchNewsHeadlines, fetchOnThisDayFact } from "../chat/companion/briefing.ts";
+import { fetchWeather, fetchNewsHeadlines, fetchOnThisDayFacts } from "../chat/companion/briefing.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -62,8 +62,8 @@ Deno.serve(async (req) => {
     }
 
     if (tile === "onThisDay") {
-      const fact = await fetchOnThisDayFact();
-      return new Response(JSON.stringify({ items: fact ? [fact] : [] }), {
+      const facts = await fetchOnThisDayFacts(3);
+      return new Response(JSON.stringify({ items: facts }), {
         headers: { ...corsHeaders, "content-type": "application/json" },
       });
     }

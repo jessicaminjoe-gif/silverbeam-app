@@ -79,26 +79,25 @@ export async function fetchNewsHeadlines(limit = 3): Promise<string[]> {
 // than the full (much longer, much more obscure) "events" list.
 const WIKIPEDIA_USER_AGENT = "SilverBeamCompanionApp/1.0 (beta, no contact email on file yet)";
 
-export async function fetchOnThisDayFact(date = new Date()): Promise<string | null> {
+export async function fetchOnThisDayFacts(count = 3, date = new Date()): Promise<string[]> {
   try {
     const month = String(date.getMonth() + 1).padStart(2, "0");
     const day = String(date.getDate()).padStart(2, "0");
     const res = await fetch(`https://en.wikipedia.org/api/rest_v1/feed/onthisday/selected/${month}/${day}`, {
       headers: { "User-Agent": WIKIPEDIA_USER_AGENT },
     });
-    if (!res.ok) return null;
+    if (!res.ok) return [];
     const data = (await res.json()) as { selected?: { text: string; year?: number }[] };
     const events = data.selected ?? [];
-    if (!events.length) return null;
-    // Picks one at random each time rather than always the first (which
-    // tends to skew toward the most ancient/least relatable entry) --
-    // fine for a tile that's checked once in a while, not something a
-    // user compares call-to-call for consistency.
-    const pick = events[Math.floor(Math.random() * events.length)];
-    return pick.year ? `In ${pick.year}, ${pick.text}` : pick.text;
+    if (!events.length) return [];
+    // Shuffles rather than always taking the first N (which tends to skew
+    // toward the most ancient/least relatable entries) -- fine for a tile
+    // that's checked once in a while, not something compared call-to-call.
+    const shuffled = [...events].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, count).map((e) => (e.year ? `In ${e.year}, ${e.text}` : e.text));
   } catch (err) {
-    console.error("[briefing] fetchOnThisDayFact failed:", err);
-    return null;
+    console.error("[briefing] fetchOnThisDayFacts failed:", err);
+    return [];
   }
 }
 

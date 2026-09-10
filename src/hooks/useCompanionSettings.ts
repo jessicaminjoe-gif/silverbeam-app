@@ -9,17 +9,19 @@ const DEFAULT_CHECK_IN_OPTIONS = [
   { label: "Rough day", emoji: "😣" },
 ];
 
-// Every tile on by default -- matches the DB column's default (0016) so a
-// senior with no companion_settings row yet still sees the full board.
+// Board is capped at 6 tiles shown at once -- Headlines starts off so the
+// default set is exactly 6; matches the DB column's default (0017).
 export const DEFAULT_BOARD_TILES: BoardTiles = {
   call: true,
   photos: true,
   notes: true,
   checkin: true,
   weather: true,
-  headlines: true,
+  headlines: false,
   onThisDay: true,
 };
+
+export const MAX_BOARD_TILES = 6;
 
 const DEFAULTS: Omit<CompanionSettings, "senior_id" | "updated_at"> = {
   companion_name: "SilverBeam",

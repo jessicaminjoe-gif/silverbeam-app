@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { pickAndUploadAvatar } from "@/lib/uploadAvatar";
 import { speak } from "@/lib/speech";
 import { VOICE_OPTIONS, VOICE_PREVIEW_TEXT } from "@/lib/voiceOptions";
-import { useCompanionSettings } from "@/hooks/useCompanionSettings";
+import { useCompanionSettings, MAX_BOARD_TILES } from "@/hooks/useCompanionSettings";
 import { useReminders } from "@/hooks/useReminders";
 import { colors } from "@/theme/colors";
 import type { LinkedSenior } from "@/hooks/useLinkedSeniors";
@@ -151,8 +151,13 @@ export function SeniorContactSettings({ senior, onChanged }: Props) {
 
   function toggleBoardTile(key: BoardTileKey, value: boolean) {
     const nextTiles = { ...settings.board_tiles, [key]: value };
-    if (!value && !Object.values(nextTiles).some(Boolean)) {
+    const enabledCount = Object.values(nextTiles).filter(Boolean).length;
+    if (!value && enabledCount === 0) {
       Alert.alert("Keep at least one", "At least one tile needs to stay on so the board isn't empty.");
+      return;
+    }
+    if (value && enabledCount > MAX_BOARD_TILES) {
+      Alert.alert("Turn one off first", `Up to ${MAX_BOARD_TILES} tiles can be on at once -- turn another off before adding this one.`);
       return;
     }
     saveCompanionSettings({ board_tiles: nextTiles });
@@ -365,7 +370,7 @@ export function SeniorContactSettings({ senior, onChanged }: Props) {
         />
       </Field>
 
-      <Field label="Beam Board tiles" hint="Choose which tiles show up on the home screen">
+      <Field label="Beam Board tiles" hint={`Choose up to ${MAX_BOARD_TILES} tiles to show on the home screen`}>
         <View style={{ gap: 10 }}>
           {BOARD_TILE_OPTIONS.map((opt) => (
             <ToggleRow
