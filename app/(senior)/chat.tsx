@@ -117,7 +117,7 @@ export default function ChatScreen() {
                   accessibilityLabel="Play this reply out loud again"
                   hitSlop={8}
                 >
-                  <Ionicons name="volume-high" size={20} color={colors.navy} />
+                  <Ionicons name="volume-high" size={20} color={colors.white} />
                 </Pressable>
               )}
             </View>
@@ -198,9 +198,9 @@ const styles = StyleSheet.create({
   list: { padding: 16, gap: 10, flexGrow: 1, backgroundColor: colors.cream },
   emptyText: { fontSize: 26, fontWeight: "600", textAlign: "center", marginTop: 40, lineHeight: 34, color: colors.navy, paddingHorizontal: 12 },
   bubble: { borderRadius: 14, padding: 14, maxWidth: "85%" },
-  bubbleSenior: { backgroundColor: colors.peach, alignSelf: "flex-end" },
-  bubbleAssistant: { backgroundColor: colors.sageLight, alignSelf: "flex-start", paddingRight: 44 },
-  bubbleText: { fontSize: 20, lineHeight: 28, color: colors.text },
+  bubbleSenior: { backgroundColor: colors.terracotta, alignSelf: "flex-end" },
+  bubbleAssistant: { backgroundColor: colors.navy, alignSelf: "flex-start", paddingRight: 44 },
+  bubbleText: { fontSize: 20, lineHeight: 28, color: colors.white },
   replayButton: { position: "absolute", right: 10, bottom: 10 },
   quickPromptRow: {
     flexDirection: "row",
