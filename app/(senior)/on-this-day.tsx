@@ -4,7 +4,7 @@ import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBoardContent } from "@/hooks/useBoardContent";
-import { speak } from "@/lib/speech";
+import { speak, stopSpeaking } from "@/lib/speech";
 import { colors } from "@/theme/colors";
 
 export default function OnThisDayScreen() {
@@ -14,16 +14,25 @@ export default function OnThisDayScreen() {
   const autoSpoken = useRef(false);
 
   async function readAloud() {
+    if (speaking) {
+      await stopSpeaking();
+      setSpeaking(false);
+      return;
+    }
     if (!facts.length) return;
     setSpeaking(true);
-    await speak(facts.length > 1 ? `On this day: ${facts.join(". Also on this day: ")}.` : facts[0]);
-    setSpeaking(false);
+    const result = await speak(
+      facts.length > 1 ? `On this day: ${facts.join(". Also on this day: ")}.` : facts[0],
+      undefined,
+      () => setSpeaking(false)
+    );
+    if (!result.ok) setSpeaking(false);
   }
 
   // Reads the facts aloud automatically the moment they load -- unlike
   // Weather/Headlines, this tile defaults to speaking since it's the one
   // meant to be enjoyed hands-free, not just glanced at. The Read Aloud
-  // button below is for playing it again, not the first play.
+  // button below can stop it or play it again.
   useEffect(() => {
     if (loading || autoSpoken.current || !facts.length) return;
     autoSpoken.current = true;
@@ -53,24 +62,19 @@ export default function OnThisDayScreen() {
           contentContainerStyle={styles.list}
           renderItem={({ item }) => (
             <View style={styles.factCard}>
-              <Ionicons name="time" size={22} color={colors.terracotta} />
+              <Ionicons name="time" size={26} color={colors.terracotta} />
               <Text style={styles.factText}>{item}</Text>
             </View>
           )}
           ListFooterComponent={
             <Pressable
-              style={styles.readAloudButton}
+              style={[styles.readAloudButton, speaking && styles.stopButton]}
               onPress={readAloud}
-              disabled={speaking}
               accessibilityRole="button"
-              accessibilityLabel="Read these facts aloud again"
+              accessibilityLabel={speaking ? "Stop reading" : "Read these facts aloud again"}
             >
-              {speaking ? (
-                <ActivityIndicator color={colors.white} size="small" />
-              ) : (
-                <Ionicons name="volume-high" size={22} color={colors.white} />
-              )}
-              <Text style={styles.readAloudButtonText}>Read Aloud</Text>
+              <Ionicons name={speaking ? "stop" : "volume-high"} size={22} color={colors.white} />
+              <Text style={styles.readAloudButtonText}>{speaking ? "Stop" : "Read Aloud"}</Text>
             </Pressable>
           }
         />
@@ -85,9 +89,9 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 22, fontWeight: "700", color: colors.navy },
   content: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24 },
   emptyText: { fontSize: 18, textAlign: "center", color: colors.textMuted, lineHeight: 26 },
-  list: { padding: 16, gap: 12 },
-  factCard: { flexDirection: "row", gap: 12, alignItems: "flex-start", backgroundColor: colors.white, borderRadius: 14, padding: 16 },
-  factText: { flex: 1, fontSize: 18, lineHeight: 25, color: colors.text },
+  list: { padding: 16, gap: 16, flexGrow: 1 },
+  factCard: { flexDirection: "row", gap: 14, alignItems: "flex-start", backgroundColor: colors.white, borderRadius: 16, padding: 20 },
+  factText: { flex: 1, fontSize: 22, lineHeight: 30, color: colors.text },
   readAloudButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -95,8 +99,9 @@ const styles = StyleSheet.create({
     gap: 8,
     backgroundColor: colors.terracotta,
     borderRadius: 12,
-    paddingVertical: 14,
+    paddingVertical: 16,
     marginTop: 8,
   },
-  readAloudButtonText: { color: colors.white, fontSize: 17, fontWeight: "700" },
+  stopButton: { backgroundColor: colors.danger },
+  readAloudButtonText: { color: colors.white, fontSize: 18, fontWeight: "700" },
 });

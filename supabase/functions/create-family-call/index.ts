@@ -220,9 +220,9 @@ Deno.serve(async (req) => {
       const title = `${callerLabel} is calling`;
       const body = "Tap to answer";
       const data = { kind: "incoming_call", roomUrl: seniorRoomUrl, roomName: room.name, callerLabel };
-      await sendExpoPush(t.token, title, body, data, "calls");
+      await sendExpoPush(t.token, title, body, data, "incoming-calls-v2");
       if (typeof EdgeRuntime !== "undefined") {
-        EdgeRuntime.waitUntil(scheduleRepeatPushes(t.token, title, body, data, "calls"));
+        EdgeRuntime.waitUntil(scheduleRepeatPushes(t.token, title, body, data, "incoming-calls-v2"));
       }
     }
 

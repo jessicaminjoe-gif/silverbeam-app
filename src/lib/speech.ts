@@ -30,7 +30,13 @@ async function ensureAudioMode() {
 // Settings voice-preview button surfaces it via SpeakResult.errorMessage
 // so failures are diagnosable instead of just "the speaker icon did
 // nothing."
-export async function speak(text: string, voiceId?: string): Promise<SpeakResult> {
+// onFinish fires when playback completes naturally -- NOT when a caller
+// stops it early via stopSpeaking() (that caller already knows it stopped,
+// since it's the one that called it). Lets screens with a "Stop" control
+// (Weather/Headlines/On This Day) track an accurate isSpeaking state
+// instead of guessing from this promise's resolution, which happens right
+// after playback *starts*, not when it ends.
+export async function speak(text: string, voiceId?: string, onFinish?: () => void): Promise<SpeakResult> {
   try {
     await ensureAudioMode();
     const { data, error } = await supabase.functions.invoke<SynthesizeSpeechResponse>("synthesize-speech", {
@@ -54,7 +60,10 @@ export async function speak(text: string, voiceId?: string): Promise<SpeakResult
     sound.setOnPlaybackStatusUpdate((status) => {
       if (status.isLoaded && status.didJustFinish) {
         sound.unloadAsync().catch(() => {});
-        if (currentSound === sound) currentSound = null;
+        if (currentSound === sound) {
+          currentSound = null;
+          onFinish?.();
+        }
       }
     });
     return { ok: true };

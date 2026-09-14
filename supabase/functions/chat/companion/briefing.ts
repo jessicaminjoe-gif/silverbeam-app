@@ -12,18 +12,36 @@ export function getTimeOfDay(date = new Date()): "morning" | "afternoon" | "even
 }
 
 // Free, keyless chain: zip -> lat/lon (Zippopotam.us) -> NWS forecast
-// office/grid (api.weather.gov) -> today's forecast text. NWS requires an
+// office/grid (api.weather.gov) -> forecast periods. NWS requires an
 // identifying User-Agent (not a real API key, just a courtesy/policy
 // requirement) or it rejects the request.
 const NWS_USER_AGENT = "SilverBeamCompanionApp (beta, no contact email on file yet)";
 
-export async function fetchWeather(zip: string | null): Promise<string | null> {
+interface NwsPeriod {
+  name: string;
+  temperature: number;
+  isDaytime: boolean;
+  shortForecast: string;
+  detailedForecast: string;
+}
+
+// Shared by every weather fetcher below -- zip -> lat/lon is the same
+// first step regardless of which weather data comes next.
+async function geocodeZip(zip: string): Promise<{ latitude: string; longitude: string } | null> {
+  const geoRes = await fetch(`https://api.zippopotam.us/us/${encodeURIComponent(zip)}`);
+  if (!geoRes.ok) return null;
+  const geo = (await geoRes.json()) as { places?: { latitude: string; longitude: string }[] };
+  return geo.places?.[0] ?? null;
+}
+
+// Shared by fetchWeather (a sentence, for the companion's own voice) and
+// fetchWeatherDetails (structured, for the Weather tile's icon + big
+// high/low numbers) so the geo -> points -> forecast chain isn't
+// duplicated between them.
+async function fetchForecastPeriods(zip: string | null): Promise<NwsPeriod[] | null> {
   if (!zip) return null;
   try {
-    const geoRes = await fetch(`https://api.zippopotam.us/us/${encodeURIComponent(zip)}`);
-    if (!geoRes.ok) return null;
-    const geo = (await geoRes.json()) as { places?: { latitude: string; longitude: string }[] };
-    const place = geo.places?.[0];
+    const place = await geocodeZip(zip);
     if (!place) return null;
 
     const pointsRes = await fetch(`https://api.weather.gov/points/${place.latitude},${place.longitude}`, {
@@ -36,13 +54,111 @@ export async function fetchWeather(zip: string | null): Promise<string | null> {
 
     const forecastRes = await fetch(forecastUrl, { headers: { "User-Agent": NWS_USER_AGENT } });
     if (!forecastRes.ok) return null;
-    const forecast = (await forecastRes.json()) as {
-      properties?: { periods?: { name: string; detailedForecast: string }[] };
-    };
-    const today = forecast.properties?.periods?.[0];
-    return today ? `${today.name}: ${today.detailedForecast}` : null;
+    const forecast = (await forecastRes.json()) as { properties?: { periods?: NwsPeriod[] } };
+    return forecast.properties?.periods ?? null;
   } catch (err) {
-    console.error("[briefing] fetchWeather failed:", err);
+    console.error("[briefing] fetchForecastPeriods failed:", err);
+    return null;
+  }
+}
+
+export async function fetchWeather(zip: string | null): Promise<string | null> {
+  const periods = await fetchForecastPeriods(zip);
+  const today = periods?.[0];
+  return today ? `${today.name}: ${today.detailedForecast}` : null;
+}
+
+export interface WeatherDetails {
+  condition: string;
+  high: number | null;
+  low: number | null;
+  description: string;
+}
+
+export async function fetchWeatherDetails(zip: string | null): Promise<WeatherDetails | null> {
+  const periods = await fetchForecastPeriods(zip);
+  if (!periods?.length) return null;
+  const dayPeriod = periods.find((p) => p.isDaytime) ?? periods[0];
+  const nightPeriod = periods.find((p) => p !== dayPeriod && !p.isDaytime) ?? null;
+  return {
+    condition: dayPeriod.shortForecast,
+    high: dayPeriod.temperature ?? null,
+    low: nightPeriod?.temperature ?? null,
+    description: `${dayPeriod.name}: ${dayPeriod.detailedForecast}`,
+  };
+}
+
+export interface TempRecord {
+  temp: number;
+  year: number;
+}
+
+export interface DateTempRecords {
+  high: TempRecord | null;
+  low: TempRecord | null;
+}
+
+// How many past (complete) years to scan for the warmest/coolest this
+// calendar date has been. Not a claim to an official all-time station
+// record (that needs NOAA's paid/keyed climate-normals data) -- framed to
+// the senior as "since {year}" rather than "record" for that reason.
+const RECORD_YEARS = 20;
+const RECORD_FETCH_TIMEOUT_MS = 6000;
+
+// Open-Meteo's free, keyless historical archive has no "this month/day
+// across every year" query -- a single call spanning the full date range
+// was tried first, but pulling every day of every year (to then throw
+// almost all of it away) was enough data for a live test to crash the
+// function with WORKER_RESOURCE_LIMIT. Many small single-day requests (one
+// per year, run in parallel) each return one row instead of ~7,300, which
+// stays well within the function's memory/time budget.
+export async function fetchRecordTemps(zip: string | null, date = new Date()): Promise<DateTempRecords | null> {
+  if (!zip) return null;
+  try {
+    const place = await geocodeZip(zip);
+    if (!place) return null;
+
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const endYear = date.getFullYear() - 1;
+    const startYear = endYear - RECORD_YEARS + 1;
+    const years = Array.from({ length: RECORD_YEARS }, (_, i) => startYear + i);
+
+    const perYear = await Promise.all(
+      years.map(async (year) => {
+        try {
+          const dateStr = `${year}-${month}-${day}`;
+          const url =
+            `https://archive-api.open-meteo.com/v1/archive?latitude=${place.latitude}&longitude=${place.longitude}` +
+            `&start_date=${dateStr}&end_date=${dateStr}` +
+            `&daily=temperature_2m_max,temperature_2m_min&temperature_unit=fahrenheit&timezone=auto`;
+          const res = await fetch(url, { signal: AbortSignal.timeout(RECORD_FETCH_TIMEOUT_MS) });
+          if (!res.ok) return null;
+          const data = (await res.json()) as {
+            daily?: { temperature_2m_max?: (number | null)[]; temperature_2m_min?: (number | null)[] };
+          };
+          const max = data.daily?.temperature_2m_max?.[0];
+          const min = data.daily?.temperature_2m_min?.[0];
+          return { year, max: typeof max === "number" ? max : null, min: typeof min === "number" ? min : null };
+        } catch {
+          // One year's request failing (timeout, transient error) shouldn't
+          // sink the other 19 -- Promise.all over this map just treats it
+          // as "no data for that year".
+          return null;
+        }
+      })
+    );
+
+    let high: TempRecord | null = null;
+    let low: TempRecord | null = null;
+    for (const r of perYear) {
+      if (!r) continue;
+      if (r.max !== null && (!high || r.max > high.temp)) high = { temp: Math.round(r.max), year: r.year };
+      if (r.min !== null && (!low || r.min < low.temp)) low = { temp: Math.round(r.min), year: r.year };
+    }
+    return high || low ? { high, low } : null;
+  } catch (err) {
+    console.error("[briefing] fetchRecordTemps failed:", err);
     return null;
   }
 }
@@ -79,6 +195,10 @@ export async function fetchNewsHeadlines(limit = 3): Promise<string[]> {
 // than the full (much longer, much more obscure) "events" list.
 const WIKIPEDIA_USER_AGENT = "SilverBeamCompanionApp/1.0 (beta, no contact email on file yet)";
 
+// Keeps facts within a senior's own lifetime or near it, rather than
+// ancient/medieval trivia that's harder to relate to.
+const EARLIEST_YEAR = 1900;
+
 export async function fetchOnThisDayFacts(count = 3, date = new Date()): Promise<string[]> {
   try {
     const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -88,10 +208,10 @@ export async function fetchOnThisDayFacts(count = 3, date = new Date()): Promise
     });
     if (!res.ok) return [];
     const data = (await res.json()) as { selected?: { text: string; year?: number }[] };
-    const events = data.selected ?? [];
+    const events = (data.selected ?? []).filter((e) => (e.year ?? 0) >= EARLIEST_YEAR);
     if (!events.length) return [];
     // Shuffles rather than always taking the first N (which tends to skew
-    // toward the most ancient/least relatable entries) -- fine for a tile
+    // toward the earliest-in-the-century entries) -- fine for a tile
     // that's checked once in a while, not something compared call-to-call.
     const shuffled = [...events].sort(() => Math.random() - 0.5);
     return shuffled.slice(0, count).map((e) => (e.year ? `In ${e.year}, ${e.text}` : e.text));

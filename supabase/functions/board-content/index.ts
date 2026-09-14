@@ -8,7 +8,7 @@
 // Deploy: supabase functions deploy board-content
 
 import { createClient } from "npm:@supabase/supabase-js@^2.45.0";
-import { fetchWeather, fetchNewsHeadlines, fetchOnThisDayFacts } from "../chat/companion/briefing.ts";
+import { fetchWeatherDetails, fetchRecordTemps, fetchNewsHeadlines, fetchOnThisDayFacts } from "../chat/companion/briefing.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -74,10 +74,16 @@ Deno.serve(async (req) => {
       .select("location_zip")
       .eq("senior_id", user.id)
       .maybeSingle();
-    const weather = await fetchWeather(settings?.location_zip ?? null);
-    return new Response(JSON.stringify({ items: weather ? [weather] : [] }), {
-      headers: { ...corsHeaders, "content-type": "application/json" },
-    });
+    const zip = settings?.location_zip ?? null;
+    const [weather, records] = await Promise.all([fetchWeatherDetails(zip), fetchRecordTemps(zip)]);
+    return new Response(
+      JSON.stringify({
+        items: weather ? [weather.description] : [],
+        weather,
+        records,
+      }),
+      { headers: { ...corsHeaders, "content-type": "application/json" } }
+    );
   } catch (err) {
     console.error(err);
     return new Response(JSON.stringify({ error: "Internal error" }), {

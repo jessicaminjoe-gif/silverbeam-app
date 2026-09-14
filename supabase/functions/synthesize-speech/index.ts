@@ -26,15 +26,18 @@ const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY")!;
 const VALID_VOICES = new Set(["alloy", "echo", "fable", "onyx", "nova", "shimmer"]);
 const DEFAULT_VOICE = "nova";
 
-// Steer these three toward sounding like an older adult via gpt-4o-mini-tts's
-// "instructions" param (tts-1 has no style control, just the raw preset
-// voice). echo/Walter is deliberately left off this map -- family confirmed
-// its default tts-1 delivery already sounds right, so it keeps using tts-1
-// unchanged rather than risk a different voice model changing its timbre.
-const OLDER_VOICE_INSTRUCTIONS: Record<string, string> = {
-  nova: "Speak as a warm, friendly woman in her 70s. Gentle, slightly unhurried pacing, like a loving grandmother catching up with family.",
-  shimmer: "Speak as a gentle, soft-spoken woman in her 70s or 80s. Calm and soothing, with an unhurried pace, like a tender grandmother.",
-  onyx: "Speak as a steady, calm man in his 70s. Warm and reassuring, with an unhurried pace, like a wise grandfather.",
+// Steers every voice via gpt-4o-mini-tts's "instructions" param (tts-1 has
+// no style control at all, just the raw preset voice, which is a big part
+// of why it can read as flat/robotic). Earlier revisions leaned on "older,
+// unhurried" phrasing to make these sound like an older adult -- feedback
+// after real testing was that the result read as stilted rather than warm,
+// so this instead emphasizes upbeat, natural, conversational energy, which
+// lands as more appealing without sounding artificially slow.
+const VOICE_INSTRUCTIONS: Record<string, string> = {
+  nova: "Speak with warm, upbeat energy and natural conversational pacing and intonation -- like a cheerful friend catching up, never flat or monotone.",
+  shimmer: "Speak gently and warmly with natural conversational rhythm -- soft and soothing, but engaged and lively, never slow or flat.",
+  onyx: "Speak with a warm, steady, reassuring tone and natural conversational pacing -- calm but genuinely engaged, never monotone.",
+  echo: "Speak clearly and warmly with upbeat, natural conversational energy -- friendly and engaged, never flat or robotic.",
 };
 
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
@@ -100,7 +103,7 @@ Deno.serve(async (req) => {
     }
     if (!voice || !VALID_VOICES.has(voice)) voice = DEFAULT_VOICE;
 
-    const instructions = OLDER_VOICE_INSTRUCTIONS[voice];
+    const instructions = VOICE_INSTRUCTIONS[voice];
     const ttsRes = await fetch("https://api.openai.com/v1/audio/speech", {
       method: "POST",
       headers: {
@@ -108,7 +111,7 @@ Deno.serve(async (req) => {
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        model: instructions ? "gpt-4o-mini-tts" : "tts-1",
+        model: "gpt-4o-mini-tts",
         voice,
         input: text,
         response_format: "mp3",

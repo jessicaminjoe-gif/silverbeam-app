@@ -150,7 +150,7 @@ export default function SeniorHomeScreen() {
         accessibilityRole="button"
         accessibilityLabel={`Ask ${settings.companion_name}`}
       >
-        <Ionicons name="chatbubble-ellipses-outline" size={22} color={colors.terracotta} />
+        <Ionicons name="chatbubble-ellipses" size={24} color={colors.white} />
         <Text style={styles.askButtonText}>Ask {settings.companion_name}</Text>
       </Pressable>
     </View>
@@ -194,11 +194,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    borderWidth: 1.5,
-    borderColor: colors.terracotta,
+    backgroundColor: colors.terracotta,
     borderRadius: 12,
-    paddingVertical: 14,
+    paddingVertical: 16,
     marginHorizontal: 16,
+    // A touch of shadow/elevation so it reads as a real button sitting on
+    // top of the board, not just another flat row -- was too easy to miss
+    // as an outline-only button per feedback after real testing.
+    shadowColor: colors.navy,
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 3,
   },
-  askButtonText: { fontSize: 17, fontWeight: "700", color: colors.terracotta },
+  askButtonText: { fontSize: 18, fontWeight: "800", color: colors.white },
 });

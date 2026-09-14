@@ -47,8 +47,16 @@ if (Platform.OS !== "web") {
 // true looping ringtone (that needs a foreground service / full-screen
 // intent, a bigger native feature) but a real step up from the default
 // channel's single quiet buzz.
+//
+// Channel id deliberately changed from the original "calls" -- Android
+// locks a channel's importance/sound/vibration the first time it's
+// created and silently ignores any later setNotificationChannelAsync call
+// with the same id, even across app updates. A device that got "calls"
+// created under different settings on an earlier build would stay stuck
+// silent forever no matter what this file says now; a new id forces
+// Android to create it fresh with the settings actually below.
 if (Platform.OS === "android") {
-  Notifications.setNotificationChannelAsync("calls", {
+  Notifications.setNotificationChannelAsync("incoming-calls-v2", {
     name: "Incoming calls",
     importance: Notifications.AndroidImportance.MAX,
     vibrationPattern: [0, 500, 250, 500],

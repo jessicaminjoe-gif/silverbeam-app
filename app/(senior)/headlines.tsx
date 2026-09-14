@@ -4,7 +4,7 @@ import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBoardContent } from "@/hooks/useBoardContent";
-import { speak } from "@/lib/speech";
+import { speak, stopSpeaking } from "@/lib/speech";
 import { colors } from "@/theme/colors";
 
 export default function HeadlinesScreen() {
@@ -13,10 +13,15 @@ export default function HeadlinesScreen() {
   const [speaking, setSpeaking] = useState(false);
 
   async function handleReadAloud() {
+    if (speaking) {
+      await stopSpeaking();
+      setSpeaking(false);
+      return;
+    }
     if (!headlines.length) return;
     setSpeaking(true);
-    await speak(`Today's top headlines: ${headlines.join(". Next: ")}.`);
-    setSpeaking(false);
+    const result = await speak(`Today's top headlines: ${headlines.join(". Next: ")}.`, undefined, () => setSpeaking(false));
+    if (!result.ok) setSpeaking(false);
   }
 
   return (
@@ -47,18 +52,13 @@ export default function HeadlinesScreen() {
           )}
           ListFooterComponent={
             <Pressable
-              style={styles.readAloudButton}
+              style={[styles.readAloudButton, speaking && styles.stopButton]}
               onPress={handleReadAloud}
-              disabled={speaking}
               accessibilityRole="button"
-              accessibilityLabel="Read headlines aloud"
+              accessibilityLabel={speaking ? "Stop reading" : "Read headlines aloud"}
             >
-              {speaking ? (
-                <ActivityIndicator color={colors.white} size="small" />
-              ) : (
-                <Ionicons name="volume-high" size={22} color={colors.white} />
-              )}
-              <Text style={styles.readAloudButtonText}>Read Aloud</Text>
+              <Ionicons name={speaking ? "stop" : "volume-high"} size={22} color={colors.white} />
+              <Text style={styles.readAloudButtonText}>{speaking ? "Stop" : "Read Aloud"}</Text>
             </Pressable>
           }
         />
@@ -86,5 +86,6 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     marginTop: 8,
   },
+  stopButton: { backgroundColor: colors.danger },
   readAloudButtonText: { color: colors.white, fontSize: 17, fontWeight: "700" },
 });
