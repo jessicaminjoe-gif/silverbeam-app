@@ -217,6 +217,12 @@ Deno.serve(async (req) => {
       greetingContext = headlines.length
         ? `The person is asking for today's top news headlines. Here are three: ${headlines.join(" | ")}. Summarize them naturally and briefly -- don't end with a question.`
         : "The person is asking for today's news headlines, but none could be fetched right now -- let them know gently. Don't end with a question.";
+    } else if (body.quickPrompt === "joke") {
+      greetingContext =
+        "The person wants to hear a joke. Tell one short, warm, clean joke -- easy to follow out loud, nothing that leans on wordplay you'd need to see written down or on current pop culture they might not know. Don't end with a question.";
+    } else if (body.quickPrompt === "compliment") {
+      greetingContext =
+        "The person wants to hear something nice. Give one short, warm, genuine compliment or bit of encouragement that would brighten their day -- specific and sincere, not generic flattery. Don't end with a question.";
     } else if (GREETING_PATTERN.test(body.message)) {
       // A senior opening a chat turn with a greeting ("hi", "hello", "good
       // morning", ...) gets the same weather/news/reminders content as the

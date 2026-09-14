@@ -25,6 +25,8 @@ const QUICK_PROMPTS: { key: QuickPrompt; icon: keyof typeof Ionicons.glyphMap; l
   { key: "weather", icon: "partly-sunny", label: "Weather", text: "What's the weather today?" },
   { key: "reminders", icon: "calendar", label: "My Reminders", text: "Do I have any reminders coming up this week?" },
   { key: "news", icon: "newspaper", label: "Headlines", text: "What are today's top news headlines?" },
+  { key: "joke", icon: "happy", label: "Tell a Joke", text: "Tell me a joke!" },
+  { key: "compliment", icon: "sunny", label: "Something Nice", text: "Say something nice to me." },
 ];
 
 // The AI companion's own space, reached from Home's "Chat" button rather
@@ -204,6 +206,7 @@ const styles = StyleSheet.create({
   replayButton: { position: "absolute", right: 10, bottom: 10 },
   quickPromptRow: {
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: 8,
     paddingHorizontal: 12,
     paddingTop: 10,
@@ -212,7 +215,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.cream,
   },
   quickPromptButton: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: "30%",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",

@@ -20,7 +20,7 @@ export interface CompanionReply {
   escalation: EscalationResult;
 }
 
-export type QuickPrompt = "weather" | "reminders" | "news";
+export type QuickPrompt = "weather" | "reminders" | "news" | "joke" | "compliment";
 
 export interface ChatRequestBody {
   seniorId: string;
