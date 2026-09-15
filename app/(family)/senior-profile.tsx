@@ -7,7 +7,8 @@ import { useActiveSenior } from "@/hooks/useActiveSenior";
 import { SeniorSwitcher } from "@/components/SeniorSwitcher";
 import { RedeemInviteForm } from "@/components/RedeemInviteForm";
 import { colors } from "@/theme/colors";
-import type { CallEvent, CheckIn, EscalationEvent } from "@/types/database";
+import { NOTE_REACTION_EMOJI } from "@/lib/noteReactions";
+import type { CallEvent, CheckIn, EscalationEvent, FamilyNote } from "@/types/database";
 
 const MOOD_LABEL: Record<string, string> = {
   great: "Great",
@@ -19,7 +20,8 @@ const MOOD_LABEL: Record<string, string> = {
 type HistoryItem =
   | { kind: "alert"; id: string; at: string; data: EscalationEvent }
   | { kind: "check_in"; id: string; at: string; data: CheckIn }
-  | { kind: "call"; id: string; at: string; data: CallEvent };
+  | { kind: "call"; id: string; at: string; data: CallEvent }
+  | { kind: "note"; id: string; at: string; data: FamilyNote };
 
 export default function SeniorProfileScreen() {
   const { activeSenior, seniors, loading: loadingSeniors, setActiveSeniorId, reload: reloadSeniors } = useActiveSenior();
@@ -30,16 +32,18 @@ export default function SeniorProfileScreen() {
   const load = useCallback(async () => {
     if (!activeSenior) return;
     const seniorId = activeSenior.seniorId;
-    const [{ data: alerts }, { data: checkIns }, { data: calls }] = await Promise.all([
+    const [{ data: alerts }, { data: checkIns }, { data: calls }, { data: notes }] = await Promise.all([
       supabase.from("escalation_events").select("*").eq("senior_id", seniorId),
       supabase.from("check_ins").select("*").eq("senior_id", seniorId),
       supabase.from("call_events").select("*").eq("senior_id", seniorId),
+      supabase.from("family_notes").select("*").eq("senior_id", seniorId),
     ]);
 
     const merged: HistoryItem[] = [
       ...(alerts ?? []).map((a): HistoryItem => ({ kind: "alert", id: `alert-${a.id}`, at: a.created_at, data: a as EscalationEvent })),
       ...(checkIns ?? []).map((c): HistoryItem => ({ kind: "check_in", id: `checkin-${c.id}`, at: c.occurred_at, data: c as CheckIn })),
       ...(calls ?? []).map((c): HistoryItem => ({ kind: "call", id: `call-${c.id}`, at: c.started_at, data: c as CallEvent })),
+      ...(notes ?? []).map((n): HistoryItem => ({ kind: "note", id: `note-${n.id}`, at: n.created_at, data: n as FamilyNote })),
     ].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
 
     setItems(merged);
@@ -106,6 +110,21 @@ export default function SeniorProfileScreen() {
             </Pressable>
           );
         }
+        if (item.kind === "note") {
+          const n = item.data;
+          return (
+            <View style={styles.row}>
+              <Text style={[styles.badge, styles.badgeNote]}>NOTE</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.title} numberOfLines={2}>
+                  {n.audio_path ? `🎤 ${n.body}` : n.body}
+                </Text>
+                <Text style={styles.date}>{new Date(n.created_at).toLocaleString()}</Text>
+              </View>
+              {n.reaction && <Text style={styles.reactionEmoji}>{NOTE_REACTION_EMOJI[n.reaction]}</Text>}
+            </View>
+          );
+        }
         if (item.kind === "call") {
           const c = item.data;
           return (
@@ -151,7 +170,9 @@ const styles = StyleSheet.create({
   badgeAlert: { color: colors.danger, backgroundColor: "#ffe1e1" },
   badgeCall: { color: colors.navy, backgroundColor: colors.peach },
   badgeCheckIn: { color: "#5F7355", backgroundColor: colors.sageLight },
+  badgeNote: { color: colors.terracotta, backgroundColor: colors.peach },
   title: { fontSize: 15, fontWeight: "500", color: colors.text },
   date: { fontSize: 13, color: colors.textMuted, marginTop: 2 },
   status: { fontSize: 13, fontWeight: "600", color: "#5F7355" },
+  reactionEmoji: { fontSize: 22 },
 });
