@@ -57,9 +57,6 @@ export default function WeatherScreen() {
           </Text>
         ) : (
           <>
-            <Ionicons name={iconForCondition(weather.condition)} size={88} color={colors.terracotta} />
-            <Text style={styles.conditionText}>{weather.condition}</Text>
-
             <View style={styles.hiLoRow}>
               {weather.high !== null && (
                 <View style={styles.hiLoBlock}>
@@ -74,6 +71,9 @@ export default function WeatherScreen() {
                 </View>
               )}
             </View>
+
+            <Ionicons name={iconForCondition(weather.condition)} size={72} color={colors.terracotta} />
+            <Text style={styles.conditionText}>{weather.condition}</Text>
 
             <Pressable
               style={[styles.readAloudButton, speaking && styles.stopButton]}
@@ -113,11 +113,11 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 22, fontWeight: "700", color: colors.navy },
   content: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, gap: 6 },
   emptyText: { fontSize: 18, textAlign: "center", color: colors.textMuted, lineHeight: 26 },
-  conditionText: { fontSize: 24, fontWeight: "700", color: colors.navy, marginTop: 4, textAlign: "center" },
-  hiLoRow: { flexDirection: "row", gap: 32, marginTop: 20, marginBottom: 8 },
+  conditionText: { fontSize: 22, fontWeight: "700", color: colors.navy, marginTop: 4, marginBottom: 16, textAlign: "center" },
+  hiLoRow: { flexDirection: "row", gap: 40, marginBottom: 12 },
   hiLoBlock: { alignItems: "center" },
-  hiLoLabel: { fontSize: 16, fontWeight: "600", color: colors.textMuted },
-  hiLoValue: { fontSize: 64, fontWeight: "800", color: colors.navy },
+  hiLoLabel: { fontSize: 18, fontWeight: "700", color: colors.textMuted },
+  hiLoValue: { fontSize: 80, fontWeight: "800", color: colors.navy, lineHeight: 88 },
   readAloudButton: {
     flexDirection: "row",
     alignItems: "center",
