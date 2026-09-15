@@ -5,6 +5,7 @@ import { useSession } from "@/state/useSession";
 import { useLinkedSeniors } from "@/hooks/useLinkedSeniors";
 import { pickAndUploadAvatar } from "@/lib/uploadAvatar";
 import { SeniorContactSettings } from "@/components/SeniorContactSettings";
+import { RedeemInviteForm } from "@/components/RedeemInviteForm";
 import { colors } from "@/theme/colors";
 
 export default function SettingsScreen() {
@@ -61,12 +62,7 @@ export default function SettingsScreen() {
           data={seniors}
           keyExtractor={(item) => item.linkId}
           renderItem={({ item }) => <SeniorContactSettings senior={item} onChanged={reload} />}
-          ListEmptyComponent={
-            <Text style={styles.emptyText}>
-              Not linked to anyone yet. Contact the SilverBeam team to get connected to your family member's
-              account.
-            </Text>
-          }
+          ListEmptyComponent={<RedeemInviteForm onConnected={reload} />}
         />
       )}
 
@@ -97,7 +93,6 @@ const styles = StyleSheet.create({
   heading: { fontSize: 24, fontWeight: "700", color: colors.navy },
   changePhotoText: { fontSize: 14, fontWeight: "600", color: colors.terracotta, marginTop: 4 },
   subheading: { fontSize: 16, fontWeight: "600", color: colors.textMuted, marginTop: 8 },
-  emptyText: { fontSize: 15, color: colors.textMuted },
   signOutButton: {
     marginTop: "auto",
     backgroundColor: colors.navy,
