@@ -17,4 +17,4 @@ export const NOTE_REACTION_EMOJI: Record<NoteReaction, string> = Object.fromEntr
 
 // Canned one-tap text replies, next to the emoji row -- kept short and
 // generic enough to fit any note without needing to type.
-export const QUICK_REPLIES = ["Thank you", "That's so nice", "Love you too!"];
+export const QUICK_REPLIES = ["Hello", "Thank you", "That's so nice", "Love you too!"];
