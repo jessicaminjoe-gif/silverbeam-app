@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useActiveSenior } from "@/hooks/useActiveSenior";
 import { useCompanionSettings } from "@/hooks/useCompanionSettings";
 import { useVoiceNoteRecorder } from "@/hooks/useVoiceNoteRecorder";
+import { useLastContact } from "@/hooks/useLastContact";
 import { SeniorSwitcher } from "@/components/SeniorSwitcher";
 import { RedeemInviteForm } from "@/components/RedeemInviteForm";
 import { pickAndSharePhoto } from "@/lib/uploadPhoto";
@@ -13,12 +14,26 @@ import { colors } from "@/theme/colors";
 
 const MAX_NOTE_LENGTH = 500;
 
+// Coarse "2 hours ago" / "3 days ago" phrasing for the last-contacted line
+// -- an exact timestamp is less useful at a glance than "was this recent."
+function formatRelativeTime(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"} ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  const days = Math.floor(hours / 24);
+  return `${days} day${days === 1 ? "" : "s"} ago`;
+}
+
 // Home: the three things family does most -- call, send a photo, send a
 // note. Check-ins and alerts moved to their own Updates tab (updates.tsx)
 // so this stays a quick action screen, not a feed to scroll through.
 export default function DashboardScreen() {
   const { activeSenior, seniors, loading: loadingSeniors, setActiveSeniorId, reload } = useActiveSenior();
   const { settings } = useCompanionSettings(activeSenior?.seniorId);
+  const { lastContact } = useLastContact(activeSenior?.seniorId);
   const [sendingPhoto, setSendingPhoto] = useState(false);
   const [noteModalOpen, setNoteModalOpen] = useState(false);
   const [noteText, setNoteText] = useState("");
@@ -92,6 +107,12 @@ export default function DashboardScreen() {
     <>
       <View style={styles.screen}>
         <SeniorSwitcher activeSenior={activeSenior} seniors={seniors} onSwitch={setActiveSeniorId} />
+
+        {lastContact && (
+          <Text style={styles.lastContactText}>
+            Last contacted: {formatRelativeTime(lastContact.at)} by {lastContact.relationship || lastContact.fullName}
+          </Text>
+        )}
 
         <View style={styles.actionColumn}>
           <Pressable
@@ -224,6 +245,7 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, backgroundColor: colors.cream },
   screen: { flex: 1, backgroundColor: colors.cream, padding: 16, gap: 16 },
+  lastContactText: { fontSize: 13, color: colors.textMuted, marginTop: -4 },
   actionColumn: { gap: 12, marginTop: 8 },
   actionButton: {
     flexDirection: "row",
