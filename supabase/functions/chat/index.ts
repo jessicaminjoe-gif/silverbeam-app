@@ -260,9 +260,18 @@ Deno.serve(async (req) => {
 
     // Combine the LLM's self-reported tag with a deterministic keyword scan
     // over the senior's raw message — belt-and-suspenders for a
-    // safety-relevant signal.
-    const keywordResult = scanKeywords(body.message);
-    const finalEscalation: EscalationResult = combineEscalation(keywordResult, reply.escalation);
+    // safety-relevant signal. Quick-prompt turns (Weather/Headlines/My
+    // Reminders/Joke/Something Nice) are always the same fixed canned text,
+    // never something the senior actually typed, so escalation is skipped
+    // outright for them -- a live report showed the model's tag re-surface
+    // an earlier real concern from conversation history on an unrelated
+    // "give me headlines" tap, which isn't a signal this canned request
+    // should ever be able to act on.
+    const keywordResult = body.quickPrompt ? { triggered: false as const, severity: "none" as const } : scanKeywords(body.message);
+    const modelEscalation: EscalationResult = body.quickPrompt
+      ? { triggered: false, severity: "none" }
+      : reply.escalation;
+    const finalEscalation: EscalationResult = combineEscalation(keywordResult, modelEscalation);
 
     const { data: seniorMsgRow } = await userClient
       .from("conversation_messages")

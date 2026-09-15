@@ -23,10 +23,19 @@ export interface BoardWeatherRecords {
   low: BoardTempRecord | null;
 }
 
+// Mirrors OnThisDayFact in briefing.ts -- only populated when
+// tile === "onThisDay". imageUrl is null when the linked Wikipedia
+// article doesn't have a thumbnail.
+export interface BoardOnThisDayFact {
+  text: string;
+  imageUrl: string | null;
+}
+
 interface BoardContentResponse {
   items: string[];
   weather?: BoardWeather | null;
   records?: BoardWeatherRecords | null;
+  facts?: BoardOnThisDayFact[];
 }
 
 // Backs the Beam Board's glance tiles (Weather, Headlines, On This Day) --
@@ -36,6 +45,7 @@ export function useBoardContent(tile: BoardContentTile) {
   const [items, setItems] = useState<string[]>([]);
   const [weather, setWeather] = useState<BoardWeather | null>(null);
   const [records, setRecords] = useState<BoardWeatherRecords | null>(null);
+  const [facts, setFacts] = useState<BoardOnThisDayFact[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -50,10 +60,12 @@ export function useBoardContent(tile: BoardContentTile) {
       setItems([]);
       setWeather(null);
       setRecords(null);
+      setFacts([]);
     } else {
       setItems(data?.items ?? []);
       setWeather(data?.weather ?? null);
       setRecords(data?.records ?? null);
+      setFacts(data?.facts ?? []);
     }
     setLoading(false);
   }, [tile]);
@@ -62,5 +74,5 @@ export function useBoardContent(tile: BoardContentTile) {
     load();
   }, [load]);
 
-  return { items, weather, records, loading, error, reload: load };
+  return { items, weather, records, facts, loading, error, reload: load };
 }

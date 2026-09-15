@@ -63,7 +63,7 @@ Deno.serve(async (req) => {
 
     if (tile === "onThisDay") {
       const facts = await fetchOnThisDayFacts(3);
-      return new Response(JSON.stringify({ items: facts }), {
+      return new Response(JSON.stringify({ items: facts.map((f) => f.text), facts }), {
         headers: { ...corsHeaders, "content-type": "application/json" },
       });
     }

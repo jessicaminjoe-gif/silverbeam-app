@@ -104,10 +104,12 @@ export default function ChatScreen() {
       ) : (
         <FlatList
           ref={listRef}
+          style={styles.messageList}
           data={messages}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
           onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
+          onLayout={() => listRef.current?.scrollToEnd({ animated: false })}
           renderItem={({ item }) => (
             <View style={[styles.bubble, item.role === "senior" ? styles.bubbleSenior : styles.bubbleAssistant]}>
               <Text style={styles.bubbleText}>{item.content}</Text>
@@ -142,7 +144,7 @@ export default function ChatScreen() {
             accessibilityRole="button"
             accessibilityLabel={prompt.text}
           >
-            <Ionicons name={prompt.icon} size={20} color={colors.terracotta} />
+            <Ionicons name={prompt.icon} size={26} color={colors.terracotta} />
             <Text style={styles.quickPromptButtonText}>{prompt.label}</Text>
           </Pressable>
         ))}
@@ -197,6 +199,10 @@ const styles = StyleSheet.create({
   },
   headerTitle: { flex: 1, fontSize: 22, fontWeight: "700", color: colors.navy },
   soundButton: { width: 40, alignItems: "center" },
+  // The FlatList needs its own bounded size (not just contentContainerStyle)
+  // to compute a real scroll viewport -- without this, scrollToEnd was a
+  // silent no-op since there was no defined overflow to scroll within.
+  messageList: { flex: 1 },
   list: { padding: 16, gap: 10, flexGrow: 1, backgroundColor: colors.cream },
   emptyText: { fontSize: 26, fontWeight: "600", textAlign: "center", marginTop: 40, lineHeight: 34, color: colors.navy, paddingHorizontal: 12 },
   bubble: { borderRadius: 14, padding: 14, maxWidth: "85%" },
@@ -220,14 +226,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
-    borderWidth: 1,
+    gap: 8,
+    borderWidth: 1.5,
     borderColor: colors.terracotta,
-    borderRadius: 20,
-    paddingVertical: 8,
-    paddingHorizontal: 8,
+    borderRadius: 22,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
   },
-  quickPromptButtonText: { fontSize: 13, fontWeight: "700", color: colors.terracotta },
+  quickPromptButtonText: { fontSize: 16, fontWeight: "700", color: colors.terracotta },
   inputRow: {
     flexDirection: "row",
     alignItems: "flex-end",

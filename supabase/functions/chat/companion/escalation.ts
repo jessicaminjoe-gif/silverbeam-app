@@ -66,11 +66,21 @@ export function combineEscalation(a: EscalationResult, b: EscalationResult): Esc
 
 const ESCALATION_TAG_RE = /<escalation\s+severity="(none|low|medium|high)"\s+reason="([^"]*)"\s*\/>/i;
 
+// Catches a truncated/malformed tag -- e.g. the completion hitting its
+// max_tokens limit mid-tag, before the closing `/>` -- which fails the
+// strict regex above. A live report showed exactly this: a cut-off
+// `<escalation severity="high" reason="...` leaking straight into the
+// senior's visible reply because the well-formed-only match found nothing
+// to strip. Anything from "<escalation" onward is never something a
+// senior should see, complete tag or not, so it's always cut from the
+// display text even when it can't be parsed for a severity.
+const ESCALATION_TAG_START_RE = /<escalation\b[\s\S]*$/i;
+
 // Parses the LLM's self-reported <escalation .../> tag out of its reply and
 // returns the cleaned message plus the parsed result.
 export function parseEscalationTag(rawReply: string): { message: string; result: EscalationResult } {
   const match = rawReply.match(ESCALATION_TAG_RE);
-  const message = rawReply.replace(ESCALATION_TAG_RE, "").trim();
+  const message = (match ? rawReply.replace(ESCALATION_TAG_RE, "") : rawReply.replace(ESCALATION_TAG_START_RE, "")).trim();
   if (!match) {
     return { message, result: { triggered: false, severity: "none" } };
   }

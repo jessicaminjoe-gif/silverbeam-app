@@ -35,7 +35,11 @@ export const openaiProvider: CompanionProvider = {
   ): Promise<CompanionReply> {
     const completion = await getClient().chat.completions.create({
       model: MODEL,
-      max_tokens: 300,
+      // 400, not 300 -- a live report showed a reply's escalation tag get
+      // cut off mid-attribute when the reply itself ran long, leaking raw
+      // tag text into what the senior sees (see parseEscalationTag's
+      // truncated-tag handling for the other half of that fix).
+      max_tokens: 400,
       messages: [
         { role: "system", content: `${buildCompanionSystemPrompt(context.companionName)}\n\n${buildContextPreamble(context)}` },
         ...history

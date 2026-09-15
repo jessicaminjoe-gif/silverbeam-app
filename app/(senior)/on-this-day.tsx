@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import { View, Text, Pressable, FlatList, StyleSheet, ActivityIndicator } from "react-native";
+import { View, Text, Image, Pressable, FlatList, StyleSheet, ActivityIndicator } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useBoardContent } from "@/hooks/useBoardContent";
+import { useBoardContent, type BoardOnThisDayFact } from "@/hooks/useBoardContent";
 import { speak, stopSpeaking } from "@/lib/speech";
 import { colors } from "@/theme/colors";
 
 export default function OnThisDayScreen() {
   const insets = useSafeAreaInsets();
-  const { items: facts, loading, error } = useBoardContent("onThisDay");
+  const { facts, loading, error } = useBoardContent("onThisDay");
   const [speaking, setSpeaking] = useState(false);
   const autoSpoken = useRef(false);
 
@@ -21,8 +21,9 @@ export default function OnThisDayScreen() {
     }
     if (!facts.length) return;
     setSpeaking(true);
+    const texts = facts.map((f) => f.text);
     const result = await speak(
-      facts.length > 1 ? `On this day: ${facts.join(". Also on this day: ")}.` : facts[0],
+      texts.length > 1 ? `On this day: ${texts.join(". Also on this day: ")}.` : texts[0],
       undefined,
       () => setSpeaking(false)
     );
@@ -60,12 +61,7 @@ export default function OnThisDayScreen() {
           data={facts}
           keyExtractor={(_, i) => String(i)}
           contentContainerStyle={styles.list}
-          renderItem={({ item }) => (
-            <View style={styles.factCard}>
-              <Ionicons name="time" size={26} color={colors.terracotta} />
-              <Text style={styles.factText}>{item}</Text>
-            </View>
-          )}
+          renderItem={({ item }) => <FactCard fact={item} />}
           ListFooterComponent={
             <Pressable
               style={[styles.readAloudButton, speaking && styles.stopButton]}
@@ -83,6 +79,18 @@ export default function OnThisDayScreen() {
   );
 }
 
+function FactCard({ fact }: { fact: BoardOnThisDayFact }) {
+  return (
+    <View style={styles.factCard}>
+      <View style={styles.factHeader}>
+        <Ionicons name="time" size={26} color={colors.terracotta} />
+        <Text style={styles.factText}>{fact.text}</Text>
+      </View>
+      {fact.imageUrl && <Image source={{ uri: fact.imageUrl }} style={styles.factImage} resizeMode="cover" />}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.cream },
   header: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingBottom: 12 },
@@ -90,8 +98,10 @@ const styles = StyleSheet.create({
   content: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24 },
   emptyText: { fontSize: 18, textAlign: "center", color: colors.textMuted, lineHeight: 26 },
   list: { padding: 16, gap: 16, flexGrow: 1 },
-  factCard: { flexDirection: "row", gap: 14, alignItems: "flex-start", backgroundColor: colors.white, borderRadius: 16, padding: 20 },
+  factCard: { gap: 14, backgroundColor: colors.white, borderRadius: 16, padding: 20 },
+  factHeader: { flexDirection: "row", gap: 14, alignItems: "flex-start" },
   factText: { flex: 1, fontSize: 22, lineHeight: 30, color: colors.text },
+  factImage: { width: "100%", aspectRatio: 16 / 9, borderRadius: 12, backgroundColor: colors.sageLight },
   readAloudButton: {
     flexDirection: "row",
     alignItems: "center",

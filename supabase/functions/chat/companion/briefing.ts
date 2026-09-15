@@ -199,7 +199,17 @@ const WIKIPEDIA_USER_AGENT = "SilverBeamCompanionApp/1.0 (beta, no contact email
 // ancient/medieval trivia that's harder to relate to.
 const EARLIEST_YEAR = 1900;
 
-export async function fetchOnThisDayFacts(count = 3, date = new Date()): Promise<string[]> {
+export interface OnThisDayFact {
+  text: string;
+  imageUrl: string | null;
+}
+
+interface WikipediaPage {
+  thumbnail?: { source: string };
+  originalimage?: { source: string };
+}
+
+export async function fetchOnThisDayFacts(count = 3, date = new Date()): Promise<OnThisDayFact[]> {
   try {
     const month = String(date.getMonth() + 1).padStart(2, "0");
     const day = String(date.getDate()).padStart(2, "0");
@@ -207,14 +217,20 @@ export async function fetchOnThisDayFacts(count = 3, date = new Date()): Promise
       headers: { "User-Agent": WIKIPEDIA_USER_AGENT },
     });
     if (!res.ok) return [];
-    const data = (await res.json()) as { selected?: { text: string; year?: number }[] };
+    const data = (await res.json()) as { selected?: { text: string; year?: number; pages?: WikipediaPage[] }[] };
     const events = (data.selected ?? []).filter((e) => (e.year ?? 0) >= EARLIEST_YEAR);
     if (!events.length) return [];
     // Shuffles rather than always taking the first N (which tends to skew
     // toward the earliest-in-the-century entries) -- fine for a tile
     // that's checked once in a while, not something compared call-to-call.
     const shuffled = [...events].sort(() => Math.random() - 0.5);
-    return shuffled.slice(0, count).map((e) => (e.year ? `In ${e.year}, ${e.text}` : e.text));
+    // The linked Wikipedia page's thumbnail, when the article has one --
+    // not every event does, so imageUrl is nullable and the tile just
+    // shows the text on its own for those.
+    return shuffled.slice(0, count).map((e) => ({
+      text: e.year ? `In ${e.year}, ${e.text}` : e.text,
+      imageUrl: e.pages?.[0]?.thumbnail?.source ?? null,
+    }));
   } catch (err) {
     console.error("[briefing] fetchOnThisDayFacts failed:", err);
     return [];
