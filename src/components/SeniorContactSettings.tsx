@@ -27,6 +27,11 @@ const RECURRENCE_OPTIONS: { value: ReminderRecurrence; label: string }[] = [
   { value: "yearly", label: "Every year" },
   { value: "daily", label: "Every day" },
 ];
+const TEXT_SCALE_OPTIONS: { value: number; label: string }[] = [
+  { value: 1.0, label: "Normal" },
+  { value: 1.2, label: "Large" },
+  { value: 1.4, label: "Extra Large" },
+];
 const DATE_PATTERN = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
 
 // Storage stays ISO (YYYY-MM-DD, matching the `date` column and briefing.ts's
@@ -105,6 +110,7 @@ export function SeniorContactSettings({ senior, onChanged }: Props) {
       briefing_reminders: boolean;
       video_call_enabled: boolean;
       board_tiles: BoardTiles;
+      text_scale: number;
     }>
   ) {
     setSavingField(Object.keys(patch)[0]);
@@ -120,6 +126,7 @@ export function SeniorContactSettings({ senior, onChanged }: Props) {
       briefing_reminders: settings.briefing_reminders,
       video_call_enabled: settings.video_call_enabled,
       board_tiles: settings.board_tiles,
+      text_scale: settings.text_scale,
       ...patch,
     });
     setSavingField(null);
@@ -405,6 +412,24 @@ export function SeniorContactSettings({ senior, onChanged }: Props) {
           value={settings.video_call_enabled}
           onChange={(value) => saveCompanionSettings({ video_call_enabled: value })}
         />
+      </Field>
+
+      <Field label="Text size" hint="Makes text larger across the senior's screens (chat, notes, weather, and more)">
+        <View style={styles.recurrenceRow}>
+          {TEXT_SCALE_OPTIONS.map((opt) => (
+            <Pressable
+              key={opt.value}
+              style={[styles.recurrenceOption, settings.text_scale === opt.value && styles.recurrenceOptionSelected]}
+              onPress={() => saveCompanionSettings({ text_scale: opt.value })}
+              accessibilityRole="button"
+              accessibilityLabel={opt.label}
+            >
+              <Text style={[styles.recurrenceText, settings.text_scale === opt.value && styles.recurrenceTextSelected]}>
+                {opt.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
       </Field>
 
       <Field label="Beam Board tiles" hint={`Choose up to ${MAX_BOARD_TILES} tiles to show on the home screen`}>

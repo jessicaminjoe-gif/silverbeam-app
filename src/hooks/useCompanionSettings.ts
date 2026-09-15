@@ -34,6 +34,7 @@ const DEFAULTS: Omit<CompanionSettings, "senior_id" | "updated_at"> = {
   briefing_reminders: true,
   video_call_enabled: true,
   board_tiles: DEFAULT_BOARD_TILES,
+  text_scale: 1.0,
 };
 
 // Used by both the senior (reading their own settings) and family (reading

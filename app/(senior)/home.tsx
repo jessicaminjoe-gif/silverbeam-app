@@ -1,5 +1,6 @@
 import { useCallback } from "react";
-import { View, Text, Image, Pressable, FlatList, StyleSheet, ActivityIndicator, Platform } from "react-native";
+import { View, Image, Pressable, FlatList, StyleSheet, ActivityIndicator, Platform } from "react-native";
+import Text from "@/components/ScaledText";
 import { router } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";

@@ -1,5 +1,6 @@
 import { Stack } from "expo-router";
 import { colors } from "@/theme/colors";
+import { TextScaleProvider } from "@/context/TextScaleContext";
 
 // Plain stack, no tabs, one level deep from Home for most flows — per the
 // accessibility baseline (avoid nav complexity for the senior-facing
@@ -9,25 +10,27 @@ import { colors } from "@/theme/colors";
 // which covers most beta families.
 export default function SeniorLayout() {
   return (
-    <Stack
-      screenOptions={{
-        headerTitleStyle: { fontSize: 22, fontWeight: "700", color: colors.navy },
-        headerStyle: { backgroundColor: colors.cream },
-        headerTintColor: colors.terracotta,
-        headerBackTitleVisible: false,
-      }}
-    >
-      <Stack.Screen name="home" options={{ title: "SilverBeam", headerShown: false }} />
-      <Stack.Screen name="chat" options={{ title: "Chat", headerShown: false }} />
-      <Stack.Screen name="checkin" options={{ title: "Check In" }} />
-      <Stack.Screen name="call-picker" options={{ title: "Let's Connect" }} />
-      <Stack.Screen name="call" options={{ title: "Video Call" }} />
-      <Stack.Screen name="incoming-call" options={{ title: "Incoming Call", headerShown: false }} />
-      <Stack.Screen name="photos" options={{ title: "Photos from Family" }} />
-      <Stack.Screen name="love-notes" options={{ title: "Love Notes", headerShown: false }} />
-      <Stack.Screen name="weather" options={{ title: "Weather", headerShown: false }} />
-      <Stack.Screen name="headlines" options={{ title: "Headlines", headerShown: false }} />
-      <Stack.Screen name="on-this-day" options={{ title: "On This Day", headerShown: false }} />
-    </Stack>
+    <TextScaleProvider>
+      <Stack
+        screenOptions={{
+          headerTitleStyle: { fontSize: 22, fontWeight: "700", color: colors.navy },
+          headerStyle: { backgroundColor: colors.cream },
+          headerTintColor: colors.terracotta,
+          headerBackTitleVisible: false,
+        }}
+      >
+        <Stack.Screen name="home" options={{ title: "SilverBeam", headerShown: false }} />
+        <Stack.Screen name="chat" options={{ title: "Chat", headerShown: false }} />
+        <Stack.Screen name="checkin" options={{ title: "Check In" }} />
+        <Stack.Screen name="call-picker" options={{ title: "Let's Connect" }} />
+        <Stack.Screen name="call" options={{ title: "Video Call" }} />
+        <Stack.Screen name="incoming-call" options={{ title: "Incoming Call", headerShown: false }} />
+        <Stack.Screen name="photos" options={{ title: "Photos from Family" }} />
+        <Stack.Screen name="love-notes" options={{ title: "Love Notes", headerShown: false }} />
+        <Stack.Screen name="weather" options={{ title: "Weather", headerShown: false }} />
+        <Stack.Screen name="headlines" options={{ title: "Headlines", headerShown: false }} />
+        <Stack.Screen name="on-this-day" options={{ title: "On This Day", headerShown: false }} />
+      </Stack>
+    </TextScaleProvider>
   );
 }

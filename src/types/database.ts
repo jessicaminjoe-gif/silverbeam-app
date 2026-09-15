@@ -93,6 +93,7 @@ export interface CompanionSettings {
   briefing_reminders: boolean;
   video_call_enabled: boolean;
   board_tiles: BoardTiles;
+  text_scale: number;
   updated_at: string;
 }
 

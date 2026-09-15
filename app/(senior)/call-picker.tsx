@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
-import { View, Text, Image, Pressable, FlatList, StyleSheet, ActivityIndicator } from "react-native";
+import { View, Image, Pressable, FlatList, StyleSheet, ActivityIndicator } from "react-native";
+import Text from "@/components/ScaledText";
 import { router } from "expo-router";
 import { useCallContacts, type CallContact } from "@/hooks/useCallContacts";
 import { colors } from "@/theme/colors";

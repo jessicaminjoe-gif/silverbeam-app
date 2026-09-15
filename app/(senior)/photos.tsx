@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
-import { View, Text, Image, FlatList, Pressable, StyleSheet, ActivityIndicator, Modal } from "react-native";
+import { View, Image, FlatList, Pressable, StyleSheet, ActivityIndicator, Modal } from "react-native";
+import Text from "@/components/ScaledText";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSession } from "@/state/useSession";

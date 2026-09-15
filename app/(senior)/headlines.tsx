@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { View, Text, Pressable, FlatList, StyleSheet, ActivityIndicator } from "react-native";
+import { View, Pressable, FlatList, StyleSheet, ActivityIndicator } from "react-native";
+import Text from "@/components/ScaledText";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";

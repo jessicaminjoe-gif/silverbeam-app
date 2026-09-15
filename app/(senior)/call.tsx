@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { View, Text, ActivityIndicator, StyleSheet, Pressable } from "react-native";
+import { View, ActivityIndicator, StyleSheet, Pressable } from "react-native";
+import Text from "@/components/ScaledText";
 import { router, useLocalSearchParams } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { speak } from "@/lib/speech";

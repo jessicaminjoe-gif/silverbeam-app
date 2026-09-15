@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { View, Text, Pressable, StyleSheet, ActivityIndicator, Alert } from "react-native";
+import { View, Pressable, StyleSheet, ActivityIndicator, Alert } from "react-native";
+import Text from "@/components/ScaledText";
 import { router } from "expo-router";
 import { supabase } from "@/lib/supabase";
 import { useSession } from "@/state/useSession";
