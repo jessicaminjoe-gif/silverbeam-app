@@ -311,25 +311,41 @@ Deno.serve(async (req) => {
 
       let notificationMethod: "push" | "sms" | "both" | null = null;
 
-      if (primaryContact) {
-        const { data: familyPushTokens } = await serviceClient
+      if (primaryContact && links) {
+        const alertTitle = `${profile.full_name} may need you`;
+        const alertBody = finalEscalation.reason ?? "SilverBeam noticed a possible concern during today's check-in.";
+
+        // Push goes to every linked family member, not just the primary --
+        // if the primary/emergency contact's phone is off or on Do Not
+        // Disturb, nobody else used to find out at all. SMS (a real
+        // per-message cost via Twilio) stays limited to the primary
+        // contact, same as before.
+        const { data: allPushTokens } = await serviceClient
+          .from("push_tokens")
+          .select("token")
+          .in(
+            "profile_id",
+            links.map((l) => l.family_member_id)
+          );
+        for (const t of allPushTokens ?? []) {
+          await sendExpoPush(t.token, alertTitle, alertBody);
+        }
+
+        // notificationMethod on the escalation_events row still describes
+        // what the primary contact specifically received (used for
+        // acknowledge/resolve context in escalation-detail.tsx), separate
+        // from the wider push fan-out above.
+        const { data: primaryPushTokens } = await serviceClient
           .from("push_tokens")
           .select("token")
           .eq("profile_id", primaryContact.family_member_id);
+        notificationMethod = (primaryPushTokens?.length ?? 0) > 0 ? "push" : null;
 
         const { data: familyProfile } = await serviceClient
           .from("profiles")
           .select("phone")
           .eq("id", primaryContact.family_member_id)
           .single();
-
-        const alertTitle = `${profile.full_name} may need you`;
-        const alertBody = finalEscalation.reason ?? "SilverBeam noticed a possible concern during today's check-in.";
-
-        for (const t of familyPushTokens ?? []) {
-          await sendExpoPush(t.token, alertTitle, alertBody);
-        }
-        notificationMethod = (familyPushTokens?.length ?? 0) > 0 ? "push" : null;
 
         if (finalEscalation.severity === "high" && familyProfile?.phone) {
           await sendTwilioSms(familyProfile.phone, `SilverBeam alert: ${alertTitle}. ${alertBody}`);
