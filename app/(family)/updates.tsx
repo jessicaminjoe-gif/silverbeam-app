@@ -20,14 +20,18 @@ const MOOD_EMOJI: Record<string, string> = {
   rough: "😣",
 };
 
-// What's new since you last looked: open alerts up top, then the senior's
-// check-ins -- split out of Home (dashboard.tsx) so that screen stays a
+type UpdateItem =
+  | { kind: "alert"; id: string; at: string; data: EscalationEvent }
+  | { kind: "note"; id: string; at: string; data: FamilyNote }
+  | { kind: "checkin"; id: string; at: string; data: CheckIn };
+
+// What's new since you last looked: open alerts, Love Notes, and check-ins
+// all merged into one feed sorted newest-first, rather than three separate
+// sections -- split out of Home (dashboard.tsx) so that screen stays a
 // quick-action pad rather than a feed to scroll through.
 export default function UpdatesScreen() {
   const { activeSenior, seniors, loading: loadingSeniors, setActiveSeniorId, reload: reloadSeniors } = useActiveSenior();
-  const [checkIns, setCheckIns] = useState<CheckIn[]>([]);
-  const [activeEscalations, setActiveEscalations] = useState<EscalationEvent[]>([]);
-  const [recentNotes, setRecentNotes] = useState<FamilyNote[]>([]);
+  const [items, setItems] = useState<UpdateItem[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -53,9 +57,14 @@ export default function UpdatesScreen() {
         .order("created_at", { ascending: false })
         .limit(RECENT_NOTES_LIMIT),
     ]);
-    setCheckIns((checkInData as CheckIn[]) ?? []);
-    setActiveEscalations((escalationData as EscalationEvent[]) ?? []);
-    setRecentNotes((noteData as FamilyNote[]) ?? []);
+
+    const merged: UpdateItem[] = [
+      ...((checkInData as CheckIn[]) ?? []).map((c): UpdateItem => ({ kind: "checkin", id: `checkin-${c.id}`, at: c.occurred_at, data: c })),
+      ...((escalationData as EscalationEvent[]) ?? []).map((e): UpdateItem => ({ kind: "alert", id: `alert-${e.id}`, at: e.created_at, data: e })),
+      ...((noteData as FamilyNote[]) ?? []).map((n): UpdateItem => ({ kind: "note", id: `note-${n.id}`, at: n.created_at, data: n })),
+    ].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+
+    setItems(merged);
     setLoading(false);
   }, [activeSenior?.seniorId]);
 
@@ -92,19 +101,21 @@ export default function UpdatesScreen() {
 
   return (
     <FlatList
-      data={checkIns}
+      data={items}
       keyExtractor={(item) => item.id}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       contentContainerStyle={styles.list}
       ListHeaderComponent={
         <View style={{ gap: 12 }}>
           <SeniorSwitcher activeSenior={activeSenior} seniors={seniors} onSwitch={setActiveSeniorId} />
-
           <Text style={styles.heading}>Updates From {activeSenior.fullName}</Text>
-
-          {activeEscalations.map((e) => (
+        </View>
+      }
+      renderItem={({ item }) => {
+        if (item.kind === "alert") {
+          const e = item.data;
+          return (
             <Pressable
-              key={e.id}
               style={[styles.alertBanner, e.severity === "high" ? styles.alertHigh : styles.alertMedium]}
               onPress={() => router.push({ pathname: "/(family)/escalation-detail", params: { id: e.id } })}
             >
@@ -113,46 +124,42 @@ export default function UpdatesScreen() {
               </Text>
               <Text style={styles.alertDate}>{new Date(e.created_at).toLocaleString()}</Text>
             </Pressable>
-          ))}
-
-          {recentNotes.length > 0 && (
-            <View style={{ gap: 8 }}>
-              <Text style={styles.subheading}>Love Notes</Text>
-              {recentNotes.map((note) => (
-                <View key={note.id} style={styles.noteRow}>
-                  <View style={{ flex: 1 }}>
-                    <View style={styles.noteBodyRow}>
-                      {note.audio_path && <Ionicons name="mic" size={13} color={colors.terracotta} />}
-                      <Text style={styles.noteBody} numberOfLines={2}>
-                        {note.body}
-                      </Text>
-                    </View>
-                    <Text style={styles.date}>{new Date(note.created_at).toLocaleString()}</Text>
-                    {note.reply_text && <Text style={styles.noteReplyText}>"{note.reply_text}"</Text>}
-                  </View>
-                  {note.reaction ? (
-                    <Text style={styles.noteReactionEmoji}>{NOTE_REACTION_EMOJI[note.reaction]}</Text>
-                  ) : !note.reply_text ? (
-                    <Text style={styles.noteReactionPending}>No reply yet</Text>
-                  ) : null}
+          );
+        }
+        if (item.kind === "note") {
+          const note = item.data;
+          return (
+            <View style={styles.noteRow}>
+              <View style={{ flex: 1 }}>
+                <View style={styles.noteBodyRow}>
+                  {note.audio_path && <Ionicons name="mic" size={13} color={colors.terracotta} />}
+                  <Text style={styles.noteBody} numberOfLines={2}>
+                    {note.body}
+                  </Text>
                 </View>
-              ))}
+                <Text style={styles.date}>{new Date(note.created_at).toLocaleString()}</Text>
+                {note.reply_text && <Text style={styles.noteReplyText}>"{note.reply_text}"</Text>}
+              </View>
+              {note.reaction ? (
+                <Text style={styles.noteReactionEmoji}>{NOTE_REACTION_EMOJI[note.reaction]}</Text>
+              ) : !note.reply_text ? (
+                <Text style={styles.noteReactionPending}>No reply yet</Text>
+              ) : null}
             </View>
-          )}
-
-          <Text style={styles.subheading}>Check-ins</Text>
-        </View>
-      }
-      renderItem={({ item }) => (
-        <View style={styles.checkInRow}>
-          <Text style={styles.moodEmoji}>{item.mood_emoji ?? (item.mood ? MOOD_EMOJI[item.mood] : "•")}</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.summary}>{item.summary ?? "Check-in recorded"}</Text>
-            <Text style={styles.date}>{new Date(item.occurred_at).toLocaleString()}</Text>
+          );
+        }
+        const c = item.data;
+        return (
+          <View style={styles.checkInRow}>
+            <Text style={styles.moodEmoji}>{c.mood_emoji ?? (c.mood ? MOOD_EMOJI[c.mood] : "•")}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.summary}>{c.summary ?? "Check-in recorded"}</Text>
+              <Text style={styles.date}>{new Date(c.occurred_at).toLocaleString()}</Text>
+            </View>
           </View>
-        </View>
-      )}
-      ListEmptyComponent={<Text style={styles.emptyText}>No check-ins yet.</Text>}
+        );
+      }}
+      ListEmptyComponent={<Text style={styles.emptyText}>Nothing yet.</Text>}
     />
   );
 }
@@ -161,7 +168,6 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, backgroundColor: colors.cream },
   list: { padding: 16, gap: 10, backgroundColor: colors.cream },
   heading: { fontSize: 20, fontWeight: "700", color: colors.navy },
-  subheading: { fontSize: 15, fontWeight: "600", color: colors.textMuted },
   emptyText: { fontSize: 16, textAlign: "center", color: colors.textMuted },
   checkInRow: {
     flexDirection: "row",
