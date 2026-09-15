@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { View, Image, Pressable, FlatList, StyleSheet, ActivityIndicator, Platform } from "react-native";
+import { View, Image, Pressable, FlatList, StyleSheet, ActivityIndicator, Platform, Linking, Alert } from "react-native";
 import Text from "@/components/ScaledText";
 import { router } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
@@ -10,6 +10,7 @@ import { speak } from "@/lib/speech";
 import { useCompanionSettings } from "@/hooks/useCompanionSettings";
 import { useDailyBriefing } from "@/hooks/useDailyBriefing";
 import { useCallContacts } from "@/hooks/useCallContacts";
+import { useEmergencyContact } from "@/hooks/useEmergencyContact";
 import { useSharedMedia } from "@/hooks/useSharedMedia";
 import { useFamilyNotes } from "@/hooks/useFamilyNotes";
 import { useSession } from "@/state/useSession";
@@ -63,11 +64,20 @@ export default function SeniorHomeScreen() {
   const profile = useSession((s) => s.profile);
   const { settings } = useCompanionSettings(profile?.id);
   const { contacts } = useCallContacts();
+  const { contact: emergencyContact } = useEmergencyContact();
   const { unreadCount: unreadPhotoCount, reload: reloadPhotos } = useSharedMedia(profile?.id);
   const { unreadCount: unreadNoteCount, reload: reloadNotes } = useFamilyNotes(profile?.id);
   useDailyBriefing(profile?.id, true);
 
   const seniorDisplayName = settings.senior_nickname || profile?.full_name?.split(" ")[0] || "there";
+
+  function handleEmergencyPress() {
+    if (!emergencyContact) {
+      Alert.alert("No emergency contact", "No emergency contact phone on file — ask family to add one in Settings.");
+      return;
+    }
+    Linking.openURL(`tel:${emergencyContact.phone}`);
+  }
 
   function senderLabel(senderId: string): string {
     const contact = contacts.find((c) => c.familyMemberId === senderId);
@@ -118,6 +128,14 @@ export default function SeniorHomeScreen() {
         <Text style={styles.greeting} numberOfLines={1}>
           {getGreeting()}, {seniorDisplayName}!
         </Text>
+        <Pressable
+          style={styles.emergencyButton}
+          onPress={handleEmergencyPress}
+          accessibilityRole="button"
+          accessibilityLabel="Call emergency contact"
+        >
+          <Ionicons name="call" size={26} color={colors.white} />
+        </Pressable>
       </View>
 
       <FlatList
@@ -169,6 +187,14 @@ const styles = StyleSheet.create({
   },
   logoIcon: { width: 44, height: 44, borderRadius: 12 },
   greeting: { flex: 1, fontSize: 24, fontWeight: "700", color: colors.navy },
+  emergencyButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.danger,
+  },
   grid: { paddingHorizontal: 16, paddingBottom: 12, gap: 14, flexGrow: 1 },
   row: { gap: 14 },
   tile: {
