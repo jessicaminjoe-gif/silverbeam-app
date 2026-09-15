@@ -94,6 +94,7 @@ export interface CompanionSettings {
   video_call_enabled: boolean;
   board_tiles: BoardTiles;
   text_scale: number;
+  inactivity_alert_days: number | null;
   updated_at: string;
 }
 

@@ -47,3 +47,9 @@ verify_jwt = true
 
 [functions.create-call]
 verify_jwt = true
+
+# Invoked only by the pg_cron job (see migration 0022), never by a client --
+# there's no end-user JWT to verify. The function does its own bearer-token
+# check against the service role key instead (see index.ts).
+[functions.daily-engagement-check]
+verify_jwt = false

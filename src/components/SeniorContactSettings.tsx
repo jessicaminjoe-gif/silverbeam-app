@@ -32,6 +32,13 @@ const TEXT_SCALE_OPTIONS: { value: number; label: string }[] = [
   { value: 1.2, label: "Large" },
   { value: 1.4, label: "Extra Large" },
 ];
+const INACTIVITY_ALERT_OPTIONS: { value: number | null; label: string }[] = [
+  { value: null, label: "Off" },
+  { value: 2, label: "2 days" },
+  { value: 3, label: "3 days" },
+  { value: 5, label: "5 days" },
+  { value: 7, label: "7 days" },
+];
 const DATE_PATTERN = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/;
 
 // Storage stays ISO (YYYY-MM-DD, matching the `date` column and briefing.ts's
@@ -111,6 +118,7 @@ export function SeniorContactSettings({ senior, onChanged }: Props) {
       video_call_enabled: boolean;
       board_tiles: BoardTiles;
       text_scale: number;
+      inactivity_alert_days: number | null;
     }>
   ) {
     setSavingField(Object.keys(patch)[0]);
@@ -127,6 +135,7 @@ export function SeniorContactSettings({ senior, onChanged }: Props) {
       video_call_enabled: settings.video_call_enabled,
       board_tiles: settings.board_tiles,
       text_scale: settings.text_scale,
+      inactivity_alert_days: settings.inactivity_alert_days,
       ...patch,
     });
     setSavingField(null);
@@ -425,6 +434,24 @@ export function SeniorContactSettings({ senior, onChanged }: Props) {
               accessibilityLabel={opt.label}
             >
               <Text style={[styles.recurrenceText, settings.text_scale === opt.value && styles.recurrenceTextSelected]}>
+                {opt.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      </Field>
+
+      <Field label="Inactivity alerts" hint="Get notified if there's been no check-in for this many days in a row">
+        <View style={styles.recurrenceRow}>
+          {INACTIVITY_ALERT_OPTIONS.map((opt) => (
+            <Pressable
+              key={opt.label}
+              style={[styles.recurrenceOption, settings.inactivity_alert_days === opt.value && styles.recurrenceOptionSelected]}
+              onPress={() => saveCompanionSettings({ inactivity_alert_days: opt.value })}
+              accessibilityRole="button"
+              accessibilityLabel={opt.label}
+            >
+              <Text style={[styles.recurrenceText, settings.inactivity_alert_days === opt.value && styles.recurrenceTextSelected]}>
                 {opt.label}
               </Text>
             </Pressable>
