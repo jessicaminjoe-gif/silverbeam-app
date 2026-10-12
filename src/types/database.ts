@@ -77,7 +77,7 @@ export interface CallEvent {
   caller_label: string | null;
 }
 
-export type BoardTileKey = "call" | "photos" | "notes" | "checkin" | "weather" | "headlines" | "onThisDay";
+export type BoardTileKey = "call" | "photos" | "notes" | "checkin" | "weather" | "headlines" | "onThisDay" | "myDay" | "music";
 
 export type BoardTiles = Record<BoardTileKey, boolean>;
 
@@ -106,6 +106,14 @@ export interface Reminder {
   title: string;
   recurrence: ReminderRecurrence;
   remind_on: string | null;
+  created_at: string;
+}
+
+export interface MusicLink {
+  id: string;
+  senior_id: string;
+  label: string;
+  url: string;
   created_at: string;
 }
 

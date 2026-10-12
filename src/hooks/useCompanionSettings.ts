@@ -9,16 +9,32 @@ const DEFAULT_CHECK_IN_OPTIONS = [
   { label: "Rough day", emoji: "😣" },
 ];
 
-// Board is capped at 6 tiles shown at once -- Headlines starts off so the
-// default set is exactly 6; matches the DB column's default (0017).
+// Board is capped at 6 tiles shown at once -- the default set is exactly 6;
+// matches the DB column's default (0023).
 export const DEFAULT_BOARD_TILES: BoardTiles = {
   call: true,
   photos: true,
   notes: true,
-  checkin: true,
+  checkin: false,
   weather: true,
   headlines: false,
-  onThisDay: true,
+  onThisDay: false,
+  myDay: true,
+  music: true,
+};
+
+// Rows saved before a tile existed don't have its key at all -- treat that
+// as off (not undefined) so the board filter and the Settings toggles agree.
+const ALL_TILES_OFF: BoardTiles = {
+  call: false,
+  photos: false,
+  notes: false,
+  checkin: false,
+  weather: false,
+  headlines: false,
+  onThisDay: false,
+  myDay: false,
+  music: false,
 };
 
 export const MAX_BOARD_TILES = 6;
@@ -49,7 +65,7 @@ export function useCompanionSettings(seniorId: string | undefined) {
   const load = useCallback(async () => {
     if (!seniorId) return;
     const { data } = await supabase.from("companion_settings").select("*").eq("senior_id", seniorId).maybeSingle();
-    setSettings(data as CompanionSettings | null);
+    setSettings(data ? ({ ...data, board_tiles: { ...ALL_TILES_OFF, ...(data.board_tiles as Partial<BoardTiles>) } } as CompanionSettings) : null);
     setLoading(false);
   }, [seniorId]);
 

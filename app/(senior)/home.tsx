@@ -54,6 +54,8 @@ const TILE_DEFS: TileDef[] = [
   { key: "weather", label: "Weather", icon: "partly-sunny", bg: colors.navy, fg: colors.white, route: "/(senior)/weather" },
   { key: "headlines", label: "Headlines", icon: "newspaper", bg: colors.peach, fg: colors.navy, route: "/(senior)/headlines" },
   { key: "onThisDay", label: "On This Day", icon: "time", bg: colors.peach, fg: colors.navy, route: "/(senior)/on-this-day" },
+  { key: "myDay", label: "My Day", icon: "calendar", bg: colors.sage, fg: colors.white, route: "/(senior)/my-day" },
+  { key: "music", label: "My Music", icon: "musical-notes", bg: colors.peach, fg: colors.navy, route: "/(senior)/music" },
 ];
 
 // The Beam Board: a grid of tiles for the things family and the senior do

@@ -30,6 +30,8 @@ export default function SeniorLayout() {
         <Stack.Screen name="weather" options={{ title: "Weather", headerShown: false }} />
         <Stack.Screen name="headlines" options={{ title: "Headlines", headerShown: false }} />
         <Stack.Screen name="on-this-day" options={{ title: "On This Day", headerShown: false }} />
+        <Stack.Screen name="my-day" options={{ title: "My Day", headerShown: false }} />
+        <Stack.Screen name="music" options={{ title: "My Music", headerShown: false }} />
       </Stack>
     </TextScaleProvider>
   );

@@ -7,6 +7,7 @@ import { speak } from "@/lib/speech";
 import { VOICE_OPTIONS, VOICE_PREVIEW_TEXT } from "@/lib/voiceOptions";
 import { useCompanionSettings, MAX_BOARD_TILES } from "@/hooks/useCompanionSettings";
 import { useReminders } from "@/hooks/useReminders";
+import { useMusicLinks, MAX_MUSIC_LINKS } from "@/hooks/useMusicLinks";
 import { createInvite } from "@/lib/familyInvites";
 import { colors } from "@/theme/colors";
 import type { LinkedSenior } from "@/hooks/useLinkedSeniors";
@@ -21,6 +22,8 @@ const BOARD_TILE_OPTIONS: { key: BoardTileKey; label: string }[] = [
   { key: "weather", label: "Weather" },
   { key: "headlines", label: "Headlines" },
   { key: "onThisDay", label: "On This Day" },
+  { key: "myDay", label: "My Day (today's reminders)" },
+  { key: "music", label: "My Music" },
 ];
 const RECURRENCE_OPTIONS: { value: ReminderRecurrence; label: string }[] = [
   { value: "once", label: "One time" },
@@ -64,6 +67,10 @@ interface Props {
 export function SeniorContactSettings({ senior, onChanged }: Props) {
   const { settings, loading: loadingSettings, reload } = useCompanionSettings(senior.seniorId);
   const { reminders, addReminder, removeReminder } = useReminders(senior.seniorId);
+  const { links: musicLinks, addLink: addMusicLink, removeLink: removeMusicLink } = useMusicLinks(senior.seniorId);
+  const [newMusicLabel, setNewMusicLabel] = useState("");
+  const [newMusicUrl, setNewMusicUrl] = useState("");
+  const [addingMusic, setAddingMusic] = useState(false);
   const [relationship, setRelationship] = useState(senior.relationship ?? "");
   const [nickname, setNickname] = useState(settings.senior_nickname ?? "");
   const [voiceId, setVoiceId] = useState(settings.voice_id ?? VOICE_OPTIONS[0].voiceId);
@@ -168,6 +175,26 @@ export function SeniorContactSettings({ senior, onChanged }: Props) {
     setNewReminderTitle("");
     setNewReminderDate("");
     setNewReminderRecurrence("once");
+  }
+
+  async function handleAddMusicLink() {
+    const label = newMusicLabel.trim();
+    let url = newMusicUrl.trim();
+    if (!label || !url) return;
+    if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(url)) url = `https://${url}`;
+    if (!/^https?:\/\/\S+\.\S+$/i.test(url)) {
+      Alert.alert("Check the link", "Paste a web link from Spotify, Pandora, Apple Music, YouTube, or another music site.");
+      return;
+    }
+    setAddingMusic(true);
+    const { error } = await addMusicLink({ label, url });
+    setAddingMusic(false);
+    if (error) {
+      Alert.alert("Couldn't add link", "Please try again.");
+      return;
+    }
+    setNewMusicLabel("");
+    setNewMusicUrl("");
   }
 
   function toggleBoardTile(key: BoardTileKey, value: boolean) {
@@ -465,7 +492,7 @@ export function SeniorContactSettings({ senior, onChanged }: Props) {
             <ToggleRow
               key={opt.key}
               label={opt.label}
-              value={settings.board_tiles[opt.key]}
+              value={!!settings.board_tiles[opt.key]}
               onChange={(value) => toggleBoardTile(opt.key, value)}
             />
           ))}
@@ -577,6 +604,68 @@ export function SeniorContactSettings({ senior, onChanged }: Props) {
               )}
             </Pressable>
           </View>
+        </View>
+      </Field>
+
+      <Field
+        label="My Music"
+        hint={`Up to ${MAX_MUSIC_LINKS} links to their music -- paste a link from Spotify, Pandora, Apple Music, YouTube, or anywhere else. It opens in that app on their phone.`}
+      >
+        <View style={{ gap: 10 }}>
+          {musicLinks.map((link) => (
+            <View key={link.id} style={styles.reminderRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.reminderTitle}>{link.label}</Text>
+                <Text style={styles.reminderMeta} numberOfLines={1}>
+                  {link.url}
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => removeMusicLink(link.id)}
+                accessibilityRole="button"
+                accessibilityLabel={`Remove music link ${link.label}`}
+                hitSlop={8}
+              >
+                <Ionicons name="close-circle-outline" size={22} color={colors.textMuted} />
+              </Pressable>
+            </View>
+          ))}
+
+          {musicLinks.length < MAX_MUSIC_LINKS && (
+            <View style={styles.addReminderForm}>
+              <TextInput
+                style={styles.input}
+                value={newMusicLabel}
+                onChangeText={setNewMusicLabel}
+                placeholder="Name, e.g. Sinatra Radio"
+                maxLength={40}
+                accessibilityLabel="Music link name"
+              />
+              <TextInput
+                style={styles.input}
+                value={newMusicUrl}
+                onChangeText={setNewMusicUrl}
+                placeholder="Paste link"
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="url"
+                accessibilityLabel="Music link address"
+              />
+              <Pressable
+                style={styles.addReminderButton}
+                onPress={handleAddMusicLink}
+                disabled={addingMusic || !newMusicLabel.trim() || !newMusicUrl.trim()}
+                accessibilityRole="button"
+                accessibilityLabel="Add music link"
+              >
+                {addingMusic ? (
+                  <ActivityIndicator size="small" color={colors.white} />
+                ) : (
+                  <Text style={styles.addReminderButtonText}>Add music link</Text>
+                )}
+              </Pressable>
+            </View>
+          )}
         </View>
       </Field>
 
