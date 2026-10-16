@@ -8,6 +8,8 @@ import { VOICE_OPTIONS, VOICE_PREVIEW_TEXT } from "@/lib/voiceOptions";
 import { useCompanionSettings, MAX_BOARD_TILES } from "@/hooks/useCompanionSettings";
 import { useReminders } from "@/hooks/useReminders";
 import { useMusicLinks, MAX_MUSIC_LINKS } from "@/hooks/useMusicLinks";
+import { getEmbed } from "@/lib/musicEmbed";
+import { MusicPlayer } from "@/components/MusicPlayer";
 import { createInvite } from "@/lib/familyInvites";
 import { colors } from "@/theme/colors";
 import type { LinkedSenior } from "@/hooks/useLinkedSeniors";
@@ -71,6 +73,7 @@ export function SeniorContactSettings({ senior, onChanged }: Props) {
   const [newMusicLabel, setNewMusicLabel] = useState("");
   const [newMusicUrl, setNewMusicUrl] = useState("");
   const [addingMusic, setAddingMusic] = useState(false);
+  const [testingLink, setTestingLink] = useState<{ label: string; embedUrl: string } | null>(null);
   const [relationship, setRelationship] = useState(senior.relationship ?? "");
   const [nickname, setNickname] = useState(settings.senior_nickname ?? "");
   const [voiceId, setVoiceId] = useState(settings.voice_id ?? VOICE_OPTIONS[0].voiceId);
@@ -189,7 +192,14 @@ export function SeniorContactSettings({ senior, onChanged }: Props) {
     if (!label || !url) return;
     if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(url)) url = `https://${url}`;
     if (!/^https?:\/\/\S+\.\S+$/i.test(url)) {
-      Alert.alert("Check the link", "Paste a web link from Spotify, Pandora, Apple Music, YouTube, or another music site.");
+      Alert.alert("Check the link", "Paste a web link from YouTube, Spotify, or Apple Music.");
+      return;
+    }
+    if (!getEmbed(url)) {
+      Alert.alert(
+        "Can't play that link here",
+        "Only YouTube, Spotify, and Apple Music links can play inside SilverBeam. Please paste a link from one of those."
+      );
       return;
     }
     setAddingMusic(true);
@@ -626,7 +636,7 @@ export function SeniorContactSettings({ senior, onChanged }: Props) {
 
       <Field
         label="My Music"
-        hint={`Up to ${MAX_MUSIC_LINKS} links to their music -- paste a link from Spotify, Pandora, Apple Music, YouTube, or anywhere else. It opens in that app on their phone.`}
+        hint={`Up to ${MAX_MUSIC_LINKS} links to a song or playlist from YouTube, Spotify, or Apple Music. It plays right inside SilverBeam. YouTube plays full songs; Spotify and Apple Music may play only short previews unless a paid account is signed in. Tap Test to try a link.`}
       >
         <View style={{ gap: 10 }}>
           {musicLinks.map((link) => (
@@ -637,6 +647,16 @@ export function SeniorContactSettings({ senior, onChanged }: Props) {
                   {link.url}
                 </Text>
               </View>
+              {getEmbed(link.url) && (
+                <Pressable
+                  onPress={() => setTestingLink({ label: link.label, embedUrl: getEmbed(link.url)!.embedUrl })}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Test music link ${link.label}`}
+                  hitSlop={8}
+                >
+                  <Text style={styles.testLinkText}>Test</Text>
+                </Pressable>
+              )}
               <Pressable
                 onPress={() => removeMusicLink(link.id)}
                 accessibilityRole="button"
@@ -693,6 +713,16 @@ export function SeniorContactSettings({ senior, onChanged }: Props) {
         </View>
       )}
     </View>
+
+    <Modal visible={!!testingLink} animationType="slide" onRequestClose={() => setTestingLink(null)}>
+      <View style={styles.testModal}>
+        <Text style={styles.modalTitle}>{testingLink?.label}</Text>
+        <View style={styles.testPlayer}>{testingLink && <MusicPlayer embedUrl={testingLink.embedUrl} />}</View>
+        <Pressable style={styles.testCloseButton} onPress={() => setTestingLink(null)} accessibilityRole="button" accessibilityLabel="Stop and close">
+          <Text style={styles.addReminderButtonText}>Stop and close</Text>
+        </Pressable>
+      </View>
+    </Modal>
 
     <Modal visible={inviteModalOpen} transparent animationType="fade" onRequestClose={() => setInviteModalOpen(false)}>
       <View style={styles.modalBackdrop}>
@@ -889,6 +919,10 @@ const styles = StyleSheet.create({
     marginTop: -6,
   },
   inviteButtonText: { fontSize: 14, fontWeight: "700", color: colors.terracotta },
+  testLinkText: { fontSize: 14, fontWeight: "700", color: colors.terracotta },
+  testModal: { flex: 1, backgroundColor: colors.cream, padding: 20, paddingTop: 48, gap: 14 },
+  testPlayer: { flex: 1, borderRadius: 14, overflow: "hidden", backgroundColor: "#000" },
+  testCloseButton: { backgroundColor: colors.terracotta, borderRadius: 12, paddingVertical: 16, alignItems: "center" },
   modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", alignItems: "center", justifyContent: "center", padding: 24 },
   modalCard: { backgroundColor: colors.white, borderRadius: 16, padding: 20, width: "100%", gap: 14 },
   modalTitle: { fontSize: 18, fontWeight: "700", color: colors.navy, textAlign: "center" },
