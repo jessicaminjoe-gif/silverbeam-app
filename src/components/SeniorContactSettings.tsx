@@ -77,6 +77,11 @@ export function SeniorContactSettings({ senior, onChanged }: Props) {
   const [checkInOptions, setCheckInOptions] = useState<CheckInOption[]>(settings.check_in_options);
   const [locationZip, setLocationZip] = useState(settings.location_zip ?? "");
   const [savingField, setSavingField] = useState<string | null>(null);
+  const [tilesDraft, setTilesDraft] = useState<BoardTiles>(settings.board_tiles);
+  const tilesOnCount = Object.values(tilesDraft).filter(Boolean).length;
+  useEffect(() => {
+    setTilesDraft(settings.board_tiles);
+  }, [settings.board_tiles]);
   const [previewingVoice, setPreviewingVoice] = useState<string | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [newReminderTitle, setNewReminderTitle] = useState("");
@@ -147,10 +152,11 @@ export function SeniorContactSettings({ senior, onChanged }: Props) {
     });
     setSavingField(null);
     if (error) {
-      Alert.alert("Couldn't save", "Please try again.");
-      return;
+      Alert.alert("Couldn't save", error.message || "Please try again.");
+      return false;
     }
     reload();
+    return true;
   }
 
   async function handleAddReminder() {
@@ -197,8 +203,13 @@ export function SeniorContactSettings({ senior, onChanged }: Props) {
     setNewMusicUrl("");
   }
 
-  function toggleBoardTile(key: BoardTileKey, value: boolean) {
-    const nextTiles = { ...settings.board_tiles, [key]: value };
+  // Switches flip right away from local state rather than waiting on the
+  // save round-trip -- a controlled Switch whose value only changes after a
+  // network call visibly snaps back on a phone, which reads as "it won't let
+  // me turn it off". Reverts if the save fails.
+  async function toggleBoardTile(key: BoardTileKey, value: boolean) {
+    const previous = tilesDraft;
+    const nextTiles = { ...previous, [key]: value };
     const enabledCount = Object.values(nextTiles).filter(Boolean).length;
     if (!value && enabledCount === 0) {
       Alert.alert("Keep at least one", "At least one tile needs to stay on so the board isn't empty.");
@@ -208,7 +219,9 @@ export function SeniorContactSettings({ senior, onChanged }: Props) {
       Alert.alert("Turn one off first", `Up to ${MAX_BOARD_TILES} tiles can be on at once -- turn another off before adding this one.`);
       return;
     }
-    saveCompanionSettings({ board_tiles: nextTiles });
+    setTilesDraft(nextTiles);
+    const saved = await saveCompanionSettings({ board_tiles: nextTiles });
+    if (!saved) setTilesDraft(previous);
   }
 
   function updateCheckInOption(index: number, patch: Partial<CheckInOption>) {
@@ -486,13 +499,17 @@ export function SeniorContactSettings({ senior, onChanged }: Props) {
         </View>
       </Field>
 
-      <Field label="Beam Board tiles" hint={`Choose up to ${MAX_BOARD_TILES} tiles to show on the home screen`}>
+      <Field
+        label="Beam Board tiles"
+        hint={`${tilesOnCount} of ${MAX_BOARD_TILES} tiles on${tilesOnCount >= MAX_BOARD_TILES ? " -- turn one off to add another" : ""}`}
+      >
         <View style={{ gap: 10 }}>
           {BOARD_TILE_OPTIONS.map((opt) => (
             <ToggleRow
               key={opt.key}
               label={opt.label}
-              value={!!settings.board_tiles[opt.key]}
+              value={!!tilesDraft[opt.key]}
+              disabled={!tilesDraft[opt.key] && tilesOnCount >= MAX_BOARD_TILES}
               onChange={(value) => toggleBoardTile(opt.key, value)}
             />
           ))}
@@ -733,12 +750,23 @@ export function SeniorContactSettings({ senior, onChanged }: Props) {
   );
 }
 
-function ToggleRow({ label, value, onChange }: { label: string; value: boolean; onChange: (value: boolean) => void }) {
+function ToggleRow({
+  label,
+  value,
+  onChange,
+  disabled,
+}: {
+  label: string;
+  value: boolean;
+  onChange: (value: boolean) => void;
+  disabled?: boolean;
+}) {
   return (
-    <View style={styles.toggleRow}>
+    <View style={[styles.toggleRow, disabled && { opacity: 0.45 }]}>
       <Text style={styles.toggleLabel}>{label}</Text>
       <Switch
         value={value}
+        disabled={disabled}
         onValueChange={onChange}
         trackColor={{ false: colors.border, true: colors.sage }}
         thumbColor={colors.white}
