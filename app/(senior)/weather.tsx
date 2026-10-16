@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View, Pressable, StyleSheet, ActivityIndicator } from "react-native";
+import { View, Pressable, ScrollView, StyleSheet, ActivityIndicator } from "react-native";
 import Text from "@/components/ScaledText";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -21,6 +21,31 @@ function iconForCondition(condition: string): keyof typeof Ionicons.glyphMap {
   if (c.includes("cloud")) return c.includes("sun") || c.includes("partly") ? "partly-sunny" : "cloud";
   if (c.includes("wind")) return "flag";
   return "sunny";
+}
+
+// Sun for the warmest record; snowflake for a coolest record at or below
+// freezing, cloud for a cool-but-not-freezing one.
+function referenceIcon(kind: "warm" | "cool", temp: number): { name: keyof typeof Ionicons.glyphMap; color: string; bg: string } {
+  if (kind === "warm") return { name: "sunny", color: colors.terracotta, bg: colors.peach };
+  if (temp <= 32) return { name: "snow", color: colors.navy, bg: colors.sageLight };
+  return { name: "cloud", color: colors.navy, bg: colors.sageLight };
+}
+
+function ReferenceRow({ kind, label, record }: { kind: "warm" | "cool"; label: string; record: { temp: number; year: number } }) {
+  const icon = referenceIcon(kind, record.temp);
+  return (
+    <View style={styles.referenceRow}>
+      <View style={[styles.referenceIconWrap, { backgroundColor: icon.bg }]}>
+        <Ionicons name={icon.name} size={38} color={icon.color} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.referenceLabel}>{label}</Text>
+        <Text style={styles.referenceValue}>
+          {record.temp}° in {record.year}
+        </Text>
+      </View>
+    </View>
+  );
 }
 
 export default function WeatherScreen() {
@@ -49,7 +74,7 @@ export default function WeatherScreen() {
         <Text style={styles.headerTitle}>Weather</Text>
       </View>
 
-      <View style={styles.content}>
+      <ScrollView contentContainerStyle={styles.content}>
         {loading ? (
           <ActivityIndicator size="large" color={colors.terracotta} />
         ) : error || !weather ? (
@@ -88,22 +113,14 @@ export default function WeatherScreen() {
 
             {records && (records.high || records.low) && (
               <View style={styles.recordsCard}>
-                <Text style={styles.recordsTitle}>For reference</Text>
-                {records.high && (
-                  <Text style={styles.recordsText}>
-                    Warmest on this date since {records.high.year}: {records.high.temp}° ({records.high.year})
-                  </Text>
-                )}
-                {records.low && (
-                  <Text style={styles.recordsText}>
-                    Coolest on this date since {records.low.year}: {records.low.temp}° ({records.low.year})
-                  </Text>
-                )}
+                <Text style={styles.recordsTitle}>For reference · last 20 years</Text>
+                {records.high && <ReferenceRow kind="warm" label="Warmest on this date" record={records.high} />}
+                {records.low && <ReferenceRow kind="cool" label="Coolest on this date" record={records.low} />}
               </View>
             )}
           </>
         )}
-      </View>
+      </ScrollView>
     </View>
   );
 }
@@ -112,13 +129,13 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.cream },
   header: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16, paddingBottom: 12 },
   headerTitle: { fontSize: 22, fontWeight: "700", color: colors.navy },
-  content: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, gap: 6 },
+  content: { flexGrow: 1, alignItems: "center", justifyContent: "center", padding: 24, paddingBottom: 40, gap: 6 },
   emptyText: { fontSize: 18, textAlign: "center", color: colors.textMuted, lineHeight: 26 },
   conditionText: { fontSize: 22, fontWeight: "700", color: colors.navy, marginTop: 4, marginBottom: 16, textAlign: "center" },
-  hiLoRow: { flexDirection: "row", gap: 40, marginBottom: 12 },
+  hiLoRow: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", width: "100%", columnGap: 32, rowGap: 4, marginBottom: 12 },
   hiLoBlock: { alignItems: "center" },
   hiLoLabel: { fontSize: 18, fontWeight: "700", color: colors.textMuted },
-  hiLoValue: { fontSize: 80, fontWeight: "800", color: colors.navy, lineHeight: 88 },
+  hiLoValue: { fontSize: 80, fontWeight: "800", color: colors.navy, lineHeight: 100, paddingTop: 4 },
   readAloudButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -134,11 +151,14 @@ const styles = StyleSheet.create({
   recordsCard: {
     marginTop: 28,
     backgroundColor: colors.white,
-    borderRadius: 14,
-    padding: 16,
-    gap: 6,
+    borderRadius: 16,
+    padding: 18,
+    gap: 14,
     width: "100%",
   },
-  recordsTitle: { fontSize: 13, fontWeight: "700", color: colors.textMuted, textTransform: "uppercase", letterSpacing: 0.5 },
-  recordsText: { fontSize: 15, color: colors.text },
+  recordsTitle: { fontSize: 15, fontWeight: "700", color: colors.textMuted, textTransform: "uppercase", letterSpacing: 0.5 },
+  referenceRow: { flexDirection: "row", alignItems: "center", gap: 14 },
+  referenceIconWrap: { width: 64, height: 64, borderRadius: 32, alignItems: "center", justifyContent: "center" },
+  referenceLabel: { fontSize: 18, fontWeight: "600", color: colors.textMuted },
+  referenceValue: { fontSize: 28, lineHeight: 36, fontWeight: "800", color: colors.navy },
 });
