@@ -44,18 +44,40 @@ export function MusicPlayer({ embedUrl }: MusicPlayerProps) {
   // Required lazily so the web bundle never evaluates the native module.
   const { WebView } = require("react-native-webview") as typeof import("react-native-webview");
 
+  // YouTube refuses to play ("Video player configuration error, 153") when
+  // the embedding page doesn't identify itself, and a WebView loading the
+  // embed URL directly sends no referrer. Wrapping it in a tiny page served
+  // from our own origin makes the request carry one.
+  const isYouTube = /^https:\/\/www\.youtube\.com\/embed\//.test(embedUrl);
+  const source = isYouTube
+    ? { html: youtubeWrapperHtml(embedUrl), baseUrl: PLAYER_ORIGIN }
+    : { uri: embedUrl };
+
   return (
     <WebView
-      source={{ uri: embedUrl }}
+      source={source}
       style={{ flex: 1, backgroundColor: "#000" }}
       mediaPlaybackRequiresUserAction={false}
       allowsInlineMediaPlayback
       javaScriptEnabled
       domStorageEnabled
-      originWhitelist={["https://*"]}
-      // Only the music services' own pages may load; an ad or redirect
-      // can't take the senior somewhere else.
-      onShouldStartLoadWithRequest={(request) => request.url.startsWith("https://") && isAllowedPlayerHost(hostOf(request.url))}
+      originWhitelist={["https://*", "about:blank"]}
+      // Only our wrapper page and the music services' own pages may load; an
+      // ad or redirect can't take the senior somewhere else.
+      onShouldStartLoadWithRequest={(request) =>
+        request.url === "about:blank" ||
+        request.url.replace(/\/$/, "") === PLAYER_ORIGIN ||
+        (request.url.startsWith("https://") && isAllowedPlayerHost(hostOf(request.url)))
+      }
     />
   );
+}
+
+const PLAYER_ORIGIN = "https://silverbeam.io";
+
+function youtubeWrapperHtml(embedUrl: string): string {
+  const src = embedUrl.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+  return `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>html,body{margin:0;height:100%;background:#000}iframe{border:0;width:100%;height:100%}</style></head>
+<body><iframe src="${src}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></body></html>`;
 }
