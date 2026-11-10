@@ -7,7 +7,7 @@
 // two from ever feeling mismatched (e.g. a soft/gentle voice introducing
 // itself with a name that reads as brisk or masculine).
 export const VOICE_OPTIONS = [
-  { voiceId: "nova", name: "Grace", label: "Warm & Friendly" },
+  { voiceId: "marin", name: "Grace", label: "Warm & Friendly" },
   { voiceId: "shimmer", name: "Rose", label: "Gentle & Soft" },
   { voiceId: "onyx", name: "George", label: "Steady & Calm" },
   { voiceId: "echo", name: "Walter", label: "Clear & Familiar" },

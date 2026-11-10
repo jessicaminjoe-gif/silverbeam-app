@@ -65,7 +65,17 @@ export function useCompanionSettings(seniorId: string | undefined) {
   const load = useCallback(async () => {
     if (!seniorId) return;
     const { data } = await supabase.from("companion_settings").select("*").eq("senior_id", seniorId).maybeSingle();
-    setSettings(data ? ({ ...data, board_tiles: { ...ALL_TILES_OFF, ...(data.board_tiles as Partial<BoardTiles>) } } as CompanionSettings) : null);
+    // "Grace" used to be the nova voice; show saved-nova seniors as the new
+    // Grace (marin) so the Settings picker highlights it (see synthesize-speech).
+    setSettings(
+      data
+        ? ({
+            ...data,
+            voice_id: data.voice_id === "nova" ? "marin" : data.voice_id,
+            board_tiles: { ...ALL_TILES_OFF, ...(data.board_tiles as Partial<BoardTiles>) },
+          } as CompanionSettings)
+        : null
+    );
     setLoading(false);
   }, [seniorId]);
 

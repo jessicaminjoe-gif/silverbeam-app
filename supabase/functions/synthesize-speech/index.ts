@@ -23,8 +23,11 @@ const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY")!;
 // OpenAI's tts-1 preset voices. Whatever the family picked in Settings is
 // stored verbatim in companion_settings.voice_id, so this is also the
 // source of truth for what's offered there.
-const VALID_VOICES = new Set(["alloy", "echo", "fable", "onyx", "nova", "shimmer"]);
-const DEFAULT_VOICE = "nova";
+const VALID_VOICES = new Set(["alloy", "echo", "fable", "onyx", "nova", "shimmer", "marin"]);
+const DEFAULT_VOICE = "marin";
+// "Grace" used to be the nova voice; seniors whose saved voice is still nova
+// get the new Grace (marin) rather than the old sound.
+const LEGACY_VOICE_ALIASES: Record<string, string> = { nova: "marin" };
 
 // Steers every voice via gpt-4o-mini-tts's "instructions" param (tts-1 has
 // no style control at all, just the raw preset voice, which is a big part
@@ -34,7 +37,7 @@ const DEFAULT_VOICE = "nova";
 // so this instead emphasizes upbeat, natural, conversational energy, which
 // lands as more appealing without sounding artificially slow.
 const VOICE_INSTRUCTIONS: Record<string, string> = {
-  nova: "Speak with warm, upbeat energy and natural conversational pacing and intonation -- like a cheerful friend catching up, never flat or monotone.",
+  marin: "Speak at a lively, natural conversational pace, a little quicker than an audiobook, like a warm friend chatting over coffee. Vary your pitch and rhythm naturally, sound like you are smiling, and keep pauses short. Never slow, flat, or sing-song.",
   shimmer: "Speak gently and warmly with natural conversational rhythm -- soft and soothing, but engaged and lively, never slow or flat.",
   onyx: "Speak with a warm, steady, reassuring tone and natural conversational pacing -- calm but genuinely engaged, never monotone.",
   echo: "Speak clearly and warmly with upbeat, natural conversational energy -- friendly and engaged, never flat or robotic.",
@@ -101,6 +104,7 @@ Deno.serve(async (req) => {
         .maybeSingle();
       voice = settings?.voice_id ?? undefined;
     }
+    if (voice && LEGACY_VOICE_ALIASES[voice]) voice = LEGACY_VOICE_ALIASES[voice];
     if (!voice || !VALID_VOICES.has(voice)) voice = DEFAULT_VOICE;
 
     const instructions = VOICE_INSTRUCTIONS[voice];
