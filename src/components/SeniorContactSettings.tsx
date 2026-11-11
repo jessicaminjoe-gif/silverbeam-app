@@ -8,7 +8,7 @@ import { VOICE_OPTIONS, VOICE_PREVIEW_TEXT } from "@/lib/voiceOptions";
 import { useCompanionSettings, MAX_BOARD_TILES } from "@/hooks/useCompanionSettings";
 import { useReminders } from "@/hooks/useReminders";
 import { useMusicLinks, MAX_MUSIC_LINKS } from "@/hooks/useMusicLinks";
-import { getEmbed } from "@/lib/musicEmbed";
+import { getEmbed, isSpotifyShortLink, resolveSpotifyShortLink } from "@/lib/musicEmbed";
 import { MusicPlayer } from "@/components/MusicPlayer";
 import { createInvite } from "@/lib/familyInvites";
 import { colors } from "@/theme/colors";
@@ -195,14 +195,30 @@ export function SeniorContactSettings({ senior, onChanged }: Props) {
       Alert.alert("Check the link", "Paste a web link from YouTube, Spotify, or Apple Music.");
       return;
     }
+    setAddingMusic(true);
+    // Spotify's phone Share button gives a short spotify.link URL with no
+    // song in it; swap it for the full link so it can play (and keeps
+    // working whatever happens to the short link later).
+    if (isSpotifyShortLink(url)) {
+      const resolved = await resolveSpotifyShortLink(url);
+      if (!resolved) {
+        setAddingMusic(false);
+        Alert.alert(
+          "Couldn't read that Spotify link",
+          "Check your connection and try again. Or in Spotify, tap the song's ⋯ menu, then Share, then Copy link, and paste that."
+        );
+        return;
+      }
+      url = resolved;
+    }
     if (!getEmbed(url)) {
+      setAddingMusic(false);
       Alert.alert(
         "Can't play that link here",
         "Only YouTube, Spotify, and Apple Music links can play inside SilverBeam. Please paste a link from one of those."
       );
       return;
     }
-    setAddingMusic(true);
     const { error } = await addMusicLink({ label, url });
     setAddingMusic(false);
     if (error) {

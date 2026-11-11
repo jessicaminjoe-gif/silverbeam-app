@@ -81,6 +81,49 @@ function appleEmbed(path: string, query: Record<string, string>): MusicEmbed | n
   return { service: "apple", embedUrl: `https://embed.music.apple.com${path}${i}` };
 }
 
+// Spotify's mobile "Share" button produces short links (spotify.link/Xyz)
+// that carry no track id. They aren't HTTP redirects: the page they land on
+// (spotify.app.link) is a small HTML page whose body contains the real
+// open.spotify.com link. Requested with a phone User-Agent they bounce to an
+// "open the app" flow instead, so we ask as a desktop browser.
+const SPOTIFY_SHORT_HOSTS = ["spotify.link", "spotify.app.link"];
+const DESKTOP_USER_AGENT =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+const SPOTIFY_OPEN_LINK = /open\.spotify\.com\/((?:intl-[a-z-]+\/)?(?:track|album|playlist|artist|episode|show)\/[A-Za-z0-9]{10,})/;
+
+export function isSpotifyShortLink(rawUrl: string): boolean {
+  const p = parse(rawUrl);
+  return !!p && SPOTIFY_SHORT_HOSTS.includes(p.host) && p.path.length > 1;
+}
+
+// Pulls the first open.spotify.com track/album/playlist/... link out of a
+// short-link page's HTML (plain, or with the slashes escaped/encoded).
+export function extractSpotifyUrl(html: string): string | null {
+  const normalised = html.replace(/\\u002F|\\\//gi, "/").replace(/%2F/gi, "/");
+  const m = SPOTIFY_OPEN_LINK.exec(normalised);
+  return m ? `https://open.spotify.com/${m[1]}` : null;
+}
+
+// Resolves a spotify.link short link to its full open.spotify.com URL, or
+// null if it can't be (offline, expired link, Spotify changed the page, or on
+// web where the browser blocks the cross-site request).
+export async function resolveSpotifyShortLink(rawUrl: string, timeoutMs = 8000): Promise<string | null> {
+  if (!isSpotifyShortLink(rawUrl)) return null;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(rawUrl.trim(), { headers: { "User-Agent": DESKTOP_USER_AGENT }, signal: controller.signal });
+    // Some links do redirect all the way; otherwise read it from the page.
+    const landed = extractSpotifyUrl(res.url ?? "");
+    if (landed) return landed;
+    return extractSpotifyUrl(await res.text());
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // Turns a link a family member pasted (Spotify, YouTube, Apple Music) into
 // the service's official embeddable-player URL, or null if it isn't one we
 // can play inside the app.
