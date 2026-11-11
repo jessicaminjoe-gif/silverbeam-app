@@ -79,6 +79,17 @@ function NoteCard({
   const [playing, setPlaying] = useState(false);
   const soundRef = useRef<Audio.Sound | null>(null);
 
+  // A plain, unmissable confirmation of what the senior sent back -- the
+  // selected buttons alone were too subtle to tell a reply had gone through.
+  const reactionEmoji = NOTE_REACTIONS.find((r) => r.key === note.reaction)?.emoji;
+  const responded = !!reactionEmoji || !!note.reply_text;
+  const sentSummary =
+    reactionEmoji && note.reply_text
+      ? `You sent ${reactionEmoji} and "${note.reply_text}"`
+      : reactionEmoji
+        ? `You sent ${reactionEmoji}`
+        : `You replied "${note.reply_text}"`;
+
   async function handlePlay() {
     if (!note.audioSignedUrl) return;
     if (soundRef.current) {
@@ -123,18 +134,27 @@ function NoteCard({
       )}
       <Text style={styles.noteText}>{note.body}</Text>
       <View style={styles.reactionRow}>
-        {NOTE_REACTIONS.map((r) => (
-          <Pressable
-            key={r.key}
-            style={[styles.reactionButton, note.reaction === r.key && styles.reactionButtonSelected]}
-            onPress={() => onReact(note.id, note.reaction === r.key ? null : r.key)}
-            accessibilityRole="button"
-            accessibilityLabel={note.reaction === r.key ? `Remove ${r.label} reaction` : `React with ${r.label}`}
-            hitSlop={4}
-          >
-            <Text style={styles.reactionEmoji}>{r.emoji}</Text>
-          </Pressable>
-        ))}
+        {NOTE_REACTIONS.map((r) => {
+          const selected = note.reaction === r.key;
+          return (
+            <Pressable
+              key={r.key}
+              style={[styles.reactionButton, selected && styles.reactionButtonSelected]}
+              onPress={() => onReact(note.id, selected ? null : r.key)}
+              accessibilityRole="button"
+              accessibilityState={{ selected }}
+              accessibilityLabel={selected ? `Remove ${r.label} reaction` : `React with ${r.label}`}
+              hitSlop={4}
+            >
+              <Text style={styles.reactionEmoji}>{r.emoji}</Text>
+              {selected && (
+                <View style={styles.selectedBadge}>
+                  <Ionicons name="checkmark" size={14} color={colors.white} />
+                </View>
+              )}
+            </Pressable>
+          );
+        })}
       </View>
       <View style={styles.quickReplyRow}>
         {QUICK_REPLIES.map((text) => (
@@ -145,10 +165,20 @@ function NoteCard({
             accessibilityRole="button"
             accessibilityLabel={note.reply_text === text ? `Remove reply "${text}"` : `Reply "${text}"`}
           >
+            {note.reply_text === text && <Ionicons name="checkmark-circle" size={18} color={colors.white} />}
             <Text style={[styles.quickReplyText, note.reply_text === text && styles.quickReplyTextSelected]}>{text}</Text>
           </Pressable>
         ))}
       </View>
+      {responded && (
+        <View style={styles.sentBanner} accessibilityLiveRegion="polite">
+          <Ionicons name="checkmark-circle" size={24} color={colors.sage} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.sentText}>{sentSummary}</Text>
+            <Text style={styles.sentHint}>Tap it again to take it back</Text>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -160,6 +190,32 @@ const styles = StyleSheet.create({
   list: { padding: 16, gap: 12, flexGrow: 1 },
   emptyText: { fontSize: 18, textAlign: "center", color: colors.textMuted, marginTop: 40, paddingHorizontal: 20 },
   card: { backgroundColor: colors.white, borderRadius: 14, padding: 16, gap: 10 },
+  sentBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    backgroundColor: colors.sageLight,
+    borderWidth: 2,
+    borderColor: colors.sage,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  sentText: { fontSize: 17, fontWeight: "700", color: colors.navy },
+  sentHint: { fontSize: 13, color: colors.textMuted, marginTop: 1 },
+  selectedBadge: {
+    position: "absolute",
+    top: -6,
+    right: -6,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: colors.sage,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: colors.white,
+  },
   cardHeader: { flexDirection: "row", alignItems: "center", gap: 8 },
   sender: { fontSize: 15, fontWeight: "700", color: colors.navy },
   time: { flex: 1, fontSize: 12, color: colors.textMuted },
@@ -187,10 +243,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  reactionButtonSelected: { backgroundColor: colors.sageLight, borderColor: colors.sage },
+  reactionButtonSelected: { backgroundColor: colors.sageLight, borderColor: colors.sage, borderWidth: 3 },
   reactionEmoji: { fontSize: 22 },
   quickReplyRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   quickReplyButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
     borderWidth: 1,
     borderColor: colors.terracotta,
     borderRadius: 18,

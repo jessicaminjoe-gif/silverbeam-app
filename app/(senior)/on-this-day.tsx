@@ -80,14 +80,28 @@ export default function OnThisDayScreen() {
   );
 }
 
+// Wikimedia answers 403 to the Android image loader's default User-Agent
+// ("okhttp/..."), so photos never appeared on real phones even though the
+// URLs are fine. Identifying the app (their API etiquette asks for this
+// anyway) gets them served.
+const IMAGE_HEADERS = { "User-Agent": "SilverBeamCompanionApp/1.0 (beta)" };
+
 function FactCard({ fact }: { fact: BoardOnThisDayFact }) {
+  const [imageFailed, setImageFailed] = useState(false);
   return (
     <View style={styles.factCard}>
       <View style={styles.factHeader}>
         <Ionicons name="time" size={26} color={colors.terracotta} />
         <Text style={styles.factText}>{fact.text}</Text>
       </View>
-      {fact.imageUrl && <Image source={{ uri: fact.imageUrl }} style={styles.factImage} resizeMode="cover" />}
+      {fact.imageUrl && !imageFailed && (
+        <Image
+          source={{ uri: fact.imageUrl, headers: IMAGE_HEADERS }}
+          style={styles.factImage}
+          resizeMode="cover"
+          onError={() => setImageFailed(true)}
+        />
+      )}
     </View>
   );
 }

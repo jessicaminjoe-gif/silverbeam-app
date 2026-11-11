@@ -227,9 +227,16 @@ export async function fetchOnThisDayFacts(count = 3, date = new Date()): Promise
     // The linked Wikipedia page's thumbnail, when the article has one --
     // not every event does, so imageUrl is nullable and the tile just
     // shows the text on its own for those.
+    // Takes the first linked article that has a photo (the first article
+    // often has none), preferring real photos over flags/maps/logos, which
+    // Wikipedia serves as .svg renders.
+    const pickImage = (pages: WikipediaPage[] = []): string | null => {
+      const urls = pages.map((p) => p.thumbnail?.source).filter((u): u is string => !!u);
+      return urls.find((u) => !/\.svg\//i.test(u)) ?? urls[0] ?? null;
+    };
     return shuffled.slice(0, count).map((e) => ({
       text: e.year ? `In ${e.year}, ${e.text}` : e.text,
-      imageUrl: e.pages?.[0]?.thumbnail?.source ?? null,
+      imageUrl: pickImage(e.pages),
     }));
   } catch (err) {
     console.error("[briefing] fetchOnThisDayFacts failed:", err);
