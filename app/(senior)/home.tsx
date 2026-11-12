@@ -1,5 +1,6 @@
-import { useCallback } from "react";
-import { View, Image, Pressable, FlatList, StyleSheet, ActivityIndicator, Platform, Linking, Alert } from "react-native";
+import { useCallback, useState } from "react";
+import { View, Image, Pressable, FlatList, StyleSheet, ActivityIndicator, Platform, Linking, Alert, useWindowDimensions } from "react-native";
+import { useIsTablet } from "@/lib/device";
 import Text from "@/components/ScaledText";
 import { router } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
@@ -123,11 +124,27 @@ export default function SeniorHomeScreen() {
 
   const visibleTiles = TILE_DEFS.filter((t) => settings.board_tiles[t.key]);
 
+  // Tile sizing. On a phone this works out to the same squarish tiles as
+  // before. On a tablet, width-based tiles got so tall that the last row sat
+  // below the fold, so: 3 columns when there are more than 4 tiles, and no
+  // tile taller than what lets every row fit on screen.
+  const { width: windowWidth } = useWindowDimensions();
+  const isTablet = useIsTablet();
+  const [listHeight, setListHeight] = useState(0);
+  const columns = isTablet && visibleTiles.length > 4 ? 3 : 2;
+  const rows = Math.max(1, Math.ceil(visibleTiles.length / columns));
+  const tileWidth = (windowWidth - GRID_PADDING_X * 2 - GRID_GAP * (columns - 1)) / columns;
+  // Tablets have spare height, so tiles may be taller than squarish there.
+  const widthBasedHeight = isTablet ? tileWidth * 1.3 : tileWidth / 1.1;
+  const fitHeight = listHeight > 0 ? (listHeight - GRID_PADDING_BOTTOM - GRID_GAP * (rows - 1)) / rows : widthBasedHeight;
+  const tileHeight = Math.max(MIN_TILE_HEIGHT, Math.min(widthBasedHeight, fitHeight));
+  const tileIconSize = isTablet ? 56 : 40;
+
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 12 }]}>
       <View style={styles.header}>
         <Image source={logoSource} style={styles.logoIcon} />
-        <Text style={styles.greeting} numberOfLines={1}>
+        <Text style={styles.greeting} numberOfLines={2}>
           {getGreeting()}, {seniorDisplayName}!
         </Text>
         <Pressable
@@ -141,23 +158,26 @@ export default function SeniorHomeScreen() {
       </View>
 
       <FlatList
+        // numColumns can't change on a mounted FlatList, so remount when it does.
+        key={columns}
         data={visibleTiles}
         keyExtractor={(item) => item.key}
-        numColumns={2}
+        numColumns={columns}
         columnWrapperStyle={styles.row}
         contentContainerStyle={styles.grid}
+        onLayout={(e) => setListHeight(e.nativeEvent.layout.height)}
         renderItem={({ item }) => {
           const disabled = item.key === "call" && !settings.video_call_enabled;
           const badge = item.key === "photos" ? unreadPhotoCount : item.key === "notes" ? unreadNoteCount : 0;
           return (
             <Pressable
-              style={[styles.tile, { backgroundColor: disabled ? colors.sageLight : item.bg }, disabled && styles.tileDisabled]}
+              style={[styles.tile, { height: tileHeight, backgroundColor: disabled ? colors.sageLight : item.bg }, disabled && styles.tileDisabled]}
               onPress={() => router.push(item.route as never)}
               disabled={disabled}
               accessibilityRole="button"
               accessibilityLabel={disabled ? `${item.label}, turned off` : badge > 0 ? `${item.label}, ${badge} new` : item.label}
             >
-              <Ionicons name={item.icon} size={40} color={disabled ? colors.textMuted : item.fg} />
+              <Ionicons name={item.icon} size={tileIconSize} color={disabled ? colors.textMuted : item.fg} />
               <Text style={[styles.tileLabel, { color: disabled ? colors.textMuted : item.fg }]}>{item.label}</Text>
               {badge > 0 && <View style={styles.tileBadge} />}
             </Pressable>
@@ -178,6 +198,11 @@ export default function SeniorHomeScreen() {
   );
 }
 
+const GRID_PADDING_X = 16;
+const GRID_PADDING_BOTTOM = 12;
+const GRID_GAP = 14;
+const MIN_TILE_HEIGHT = 120;
+
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.cream },
   header: {
@@ -197,11 +222,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: colors.danger,
   },
-  grid: { paddingHorizontal: 16, paddingBottom: 12, gap: 14, flexGrow: 1 },
-  row: { gap: 14 },
+  grid: { paddingHorizontal: GRID_PADDING_X, paddingBottom: GRID_PADDING_BOTTOM, gap: GRID_GAP, flexGrow: 1 },
+  row: { gap: GRID_GAP },
   tile: {
     flex: 1,
-    aspectRatio: 1.1,
     borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
