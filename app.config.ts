@@ -15,8 +15,24 @@ const config: ExpoConfig = {
     backgroundColor: "#FFFDFB",
   },
   assetBundlePatterns: ["**/*"],
+  // Over-the-air updates: JavaScript/asset fixes can reach pilot phones
+  // without a new store install (`eas update --channel preview|production`).
+  // The runtime version is tied to the app version, so a build only receives
+  // updates made for it -- bump `version` whenever a change adds or upgrades
+  // a native module, or an old build would be sent code it can't run.
+  runtimeVersion: { policy: "appVersion" },
+  updates: {
+    url: "https://u.expo.dev/8a201d80-41b0-4087-b927-dcdb99e918b6",
+    // Launch immediately with the installed version; a newer update is
+    // downloaded in the background and applied on the next launch.
+    fallbackToCacheTimeout: 0,
+  },
   ios: {
     supportsTablet: true,
+    // The portrait-only layout can't support iPad split-screen/rotation, and
+    // App Store validation rejects iPad apps that neither support every
+    // orientation nor declare themselves full-screen.
+    requireFullScreen: true,
     bundleIdentifier: "com.silverbeam.app",
     infoPlist: {
       NSCameraUsageDescription: "SilverBeam uses your camera for video calls with family.",
